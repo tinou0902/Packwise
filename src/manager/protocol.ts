@@ -36,14 +36,10 @@ export type Tab = 'browse' | 'installed' | 'updates' | 'consolidate';
 
 export interface InitMessage {
   type: 'init';
-  /** Solution = every project of the workspace (with a project picker), project = one project. */
-  mode: 'solution' | 'project';
+  /** Solution name. */
   title: string;
   sources: { name: string }[];
   strings: Record<string, string>;
-  tab: Tab;
-  /** Package to select once the data is there. */
-  select?: string;
 }
 
 export type ToWebview =
@@ -74,5 +70,4 @@ export type ToHost =
   | { type: 'uninstall'; id: string; projects: string[] }
   | { type: 'update'; updates: { id: string; version: string; projects: string[] }[] }
   | { type: 'refresh' }
-  | { type: 'openProject'; uri: string }
   | { type: 'openUrl'; url: string };

@@ -19,7 +19,6 @@ export const WEBVIEW_STRINGS = [
   'Install',
   'Uninstall',
   'Version:',
-  'Installed:',
   'Latest stable {0}',
   'Latest prerelease {0}',
   'Top-level packages ({0})',

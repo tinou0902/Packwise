@@ -24,9 +24,6 @@ export interface ProjectData {
   packages: Map<string, Package>;
 }
 
-export const isOutdated = (p: Package): boolean => p.latest.length > 0 && compareVersions(p.resolved, p.latest) < 0;
-export const isVulnerable = (p: Package): boolean => p.vulnerabilities.length > 0;
-
 /* Shape of `dotnet list package --format json`:
  * { projects: [{ path, frameworks: [{ framework, topLevelPackages: [...], transitivePackages: [...] }] }] } */
 interface ListedPackage {

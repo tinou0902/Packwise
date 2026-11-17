@@ -59,7 +59,6 @@ interface Row {
 const persisted = vscode.getState() ?? {};
 
 const state = {
-  mode: 'solution' as 'solution' | 'project',
   title: '',
   strings: {} as Record<string, string>,
   sources: [] as { name: string }[],
@@ -78,7 +77,6 @@ const state = {
   checkedUpdates: new Set<string>(),
   transitiveCollapsed: true,
   busy: '',
-  pendingSelect: undefined as string | undefined,
 };
 
 function t(key: StringKey, ...args: (string | number)[]): string {
@@ -292,7 +290,7 @@ function renderStatic(): void {
   refreshButton.title = t('Refresh');
   prereleaseLabel.textContent = t('Include prerelease');
   sourceLabel.textContent = t('Package source:');
-  heading.textContent = t('NuGet Package Manager: {0}', state.mode === 'solution' ? t("Solution '{0}'", state.title) : state.title);
+  heading.textContent = t('NuGet Package Manager: {0}', t("Solution '{0}'", state.title));
   renderSources();
 }
 
@@ -304,8 +302,7 @@ function renderSources(): void {
 }
 
 function renderTabs(): void {
-  const tabs: [Tab, StringKey][] = [['browse', 'Browse'], ['installed', 'Installed'], ['updates', 'Updates']];
-  if (state.mode === 'solution') tabs.push(['consolidate', 'Consolidate']);
+  const tabs: [Tab, StringKey][] = [['browse', 'Browse'], ['installed', 'Installed'], ['updates', 'Updates'], ['consolidate', 'Consolidate']];
   const loading = state.projects.some(p => p.loading);
   tabsBar.replaceChildren(
     ...tabs.map(([tab, label]) => {
@@ -498,7 +495,6 @@ function select(id: string | undefined): void {
   if (key) {
     const installs = installsOf(key);
     state.checkedProjects = new Set(state.tab === 'browse' ? [] : installs.map(i => i.project.uri));
-    if (state.mode === 'project') state.checkedProjects = new Set(state.projects.map(p => p.uri));
     requestSummary(id!);
   }
   render();
@@ -590,79 +586,54 @@ function renderDetails(): void {
   }, ...(choices.length > 0 ? choices : [{ value: selected ?? '', label: selected ?? t('Loading…') }]).map((c, i) =>
     h('option', { value: c.value, selected: i === choices.findIndex(x => lower(x.value) === lower(selected ?? '')) }, c.label)));
 
-  if (state.mode === 'solution') {
-    const checked = state.projects.filter(p => state.checkedProjects.has(p.uri));
-    const allChecked = state.projects.length > 0 && checked.length === state.projects.length;
-    const versionIn = (p: ProjectState) => p.packages.find(x => x.isDirect && lower(x.id) === key);
-    if (new Set(installedVersions.map(lower)).size > 1) children.push(h('div', { class: 'banner info' }, t('Versions installed in the solution differ.')));
-    children.push(h('table', { class: 'projects' },
-      h('thead', null, h('tr', null,
-        h('th', { class: 'check' }, h('input', {
-          type: 'checkbox',
-          checked: allChecked,
-          indeterminate: !allChecked && checked.length > 0,
-          onchange: () => {
-            state.checkedProjects = new Set(allChecked ? [] : state.projects.map(p => p.uri));
-            renderDetails();
-          },
-        })),
-        h('th', null, t('Project')),
-        h('th', null, t('Version')),
-      )),
-      h('tbody', null, ...state.projects.map(p => {
-        const pkg = versionIn(p);
-        return h('tr', {
-          class: state.checkedProjects.has(p.uri) ? 'checked' : '',
-          onclick: (e: Event) => {
-            if ((e.target as HTMLElement).tagName === 'INPUT') return;
-            toggleProject(p.uri);
-          },
+  const checked = state.projects.filter(p => state.checkedProjects.has(p.uri));
+  const allChecked = state.projects.length > 0 && checked.length === state.projects.length;
+  const versionIn = (p: ProjectState) => p.packages.find(x => x.isDirect && lower(x.id) === key);
+  if (new Set(installedVersions.map(lower)).size > 1) children.push(h('div', { class: 'banner info' }, t('Versions installed in the solution differ.')));
+  children.push(h('table', { class: 'projects' },
+    h('thead', null, h('tr', null,
+      h('th', { class: 'check' }, h('input', {
+        type: 'checkbox',
+        checked: allChecked,
+        indeterminate: !allChecked && checked.length > 0,
+        onchange: () => {
+          state.checkedProjects = new Set(allChecked ? [] : state.projects.map(p => p.uri));
+          renderDetails();
         },
-          h('td', { class: 'check' }, h('input', { type: 'checkbox', checked: state.checkedProjects.has(p.uri), onchange: () => toggleProject(p.uri) })),
-          h('td', { title: p.path }, p.name),
-          h('td', null, pkg ? installedVersion(pkg) : p.loading ? '…' : ''),
-        );
       })),
-    ));
-    const toInstall = checked.filter(p => !p.loading && (!versionIn(p) || lower(versionIn(p)!.resolved) !== lower(selected ?? '')));
-    const toRemove = checked.filter(p => versionIn(p));
-    children.push(h('div', { class: 'actions' },
-      h('label', null, t('Version:')),
-      versionSelect,
-      h('button', {
-        disabled: busy || !selected || toInstall.length === 0,
-        onclick: () => send({ type: 'install', id, version: selected!, projects: toInstall.map(p => p.uri) }),
-      }, t('Install')),
-      h('button', {
-        class: 'secondary',
-        disabled: busy || toRemove.length === 0,
-        onclick: () => send({ type: 'uninstall', id, projects: toRemove.map(p => p.uri) }),
-      }, t('Uninstall')),
-    ));
-  } else {
-    const project = state.projects[0];
-    const current = installs[0]?.pkg;
-    if (current) {
-      children.push(h('div', { class: 'actions' },
-        h('label', null, t('Installed:')),
-        h('input', { class: 'installed-version', readonly: true, value: installedVersion(current) }),
-        h('button', {
-          class: 'secondary',
-          disabled: busy,
-          onclick: () => send({ type: 'uninstall', id, projects: [project.uri] }),
-        }, t('Uninstall')),
-      ));
-    }
-    const same = !!current && !!selected && lower(current.resolved) === lower(selected);
-    children.push(h('div', { class: 'actions' },
-      h('label', null, t('Version:')),
-      versionSelect,
-      h('button', {
-        disabled: busy || !selected || same || !project || project.loading,
-        onclick: () => send({ type: 'install', id, version: selected!, projects: [project.uri] }),
-      }, current ? t('Update') : t('Install')),
-    ));
-  }
+      h('th', null, t('Project')),
+      h('th', null, t('Version')),
+    )),
+    h('tbody', null, ...state.projects.map(p => {
+      const pkg = versionIn(p);
+      return h('tr', {
+        class: state.checkedProjects.has(p.uri) ? 'checked' : '',
+        onclick: (e: Event) => {
+          if ((e.target as HTMLElement).tagName === 'INPUT') return;
+          toggleProject(p.uri);
+        },
+      },
+        h('td', { class: 'check' }, h('input', { type: 'checkbox', checked: state.checkedProjects.has(p.uri), onchange: () => toggleProject(p.uri) })),
+        h('td', { title: p.path }, p.name),
+        h('td', null, pkg ? installedVersion(pkg) : p.loading ? '…' : ''),
+      );
+    })),
+  ));
+  const toInstall = checked.filter(p => !p.loading && (!versionIn(p) || lower(versionIn(p)!.resolved) !== lower(selected ?? '')));
+  const toRemove = checked.filter(p => versionIn(p));
+  children.push(h('div', { class: 'actions' },
+    h('label', null, t('Version:')),
+    versionSelect,
+    h('button', {
+      disabled: busy || !selected || toInstall.length === 0,
+      onclick: () => send({ type: 'install', id, version: selected!, projects: toInstall.map(p => p.uri) }),
+    }, t('Install')),
+    h('button', {
+      class: 'secondary',
+      disabled: busy || toRemove.length === 0,
+      onclick: () => send({ type: 'uninstall', id, projects: toRemove.map(p => p.uri) }),
+    }, t('Uninstall')),
+  ));
 
   // ----- Warnings of the selected version -----
   const advisories = details?.vulnerabilities ?? [];
@@ -872,30 +843,20 @@ splitter.addEventListener('pointerdown', e => {
 window.addEventListener('message', (event: MessageEvent<ToWebview>) => {
   const m = event.data;
   switch (m.type) {
-    case 'init': {
-      const first = Object.keys(state.strings).length === 0;
-      state.mode = m.mode;
+    case 'init':
       state.title = m.title;
       state.strings = m.strings;
       state.sources = m.sources;
       renderStatic();
-      if (first || m.tab !== state.tab) {
-        state.tab = m.tab;
-        state.selected = undefined;
-      }
-      if (m.select) state.pendingSelect = m.select;
-      if (first && state.tab === 'browse') doSearch();
-      applyPendingSelect();
+      doSearch();
       render();
       return;
-    }
     case 'sources':
       state.sources = m.sources;
       renderSources();
       return;
     case 'projects':
       state.projects = m.projects;
-      applyPendingSelect();
       render();
       return;
     case 'searchResults':
@@ -921,13 +882,5 @@ window.addEventListener('message', (event: MessageEvent<ToWebview>) => {
       return;
   }
 });
-
-function applyPendingSelect(): void {
-  if (!state.pendingSelect || state.projects.some(p => p.loading)) return;
-  const id = state.pendingSelect;
-  state.pendingSelect = undefined;
-  state.selected = undefined;
-  select(id);
-}
 
 send({ type: 'ready' });

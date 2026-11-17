@@ -567,14 +567,9 @@ button.group:hover:not(:disabled) {
   margin-bottom: 8px;
 }
 
-.version-select,
-.installed-version {
+.version-select {
   width: 100%;
   min-width: 0;
-}
-
-.installed-version {
-  opacity: 0.85;
 }
 
 .banner {

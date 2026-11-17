@@ -3,8 +3,8 @@ import * as path from 'node:path';
 import * as vscode from 'vscode';
 import { addPackage, listSources, loadLatestPrerelease, removePackage } from '../dotnet.ts';
 import { FeedClient, NUGET_ORG, type SearchHit, type Source, type VersionDetails } from '../nuget.ts';
-import { errorMessage, type PackagesProvider } from '../tree.ts';
-import { ALL_SOURCES, type ProjectState, type Tab, type ToHost, type ToWebview } from './protocol.ts';
+import { errorMessage, type Solutions } from '../workspace.ts';
+import { ALL_SOURCES, type ProjectState, type ToHost, type ToWebview } from './protocol.ts';
 import { WEBVIEW_STRINGS } from './strings.ts';
 
 const PAGE_SIZE = 25;
@@ -23,33 +23,25 @@ export function resetFeedCaches(): void {
   clients.clear();
 }
 
-export interface ShowOptions {
-  tab?: Tab;
-  select?: string;
-}
-
-/** "Manage NuGet Packages" editor, for the whole workspace (solution) or one project, like Visual Studio's. */
+/** "Manage NuGet Packages for Solution" editor, like Visual Studio's. One per solution file. */
 export class ManagerPanel {
   private static readonly panels = new Map<string, ManagerPanel>();
 
-  static show(context: vscode.ExtensionContext, provider: PackagesProvider, project: vscode.Uri | undefined, options: ShowOptions = {}): void {
-    const key = project?.toString() ?? 'solution';
+  static show(context: vscode.ExtensionContext, solutions: Solutions, solution: vscode.Uri): void {
+    const key = solution.toString();
     const existing = ManagerPanel.panels.get(key);
     if (existing) {
       existing.panel.reveal();
-      if (options.tab || options.select) existing.post({ ...existing.initMessage(), ...options });
       return;
     }
-    const title = project
-      ? vscode.l10n.t('NuGet: {0}', path.basename(project.fsPath, '.csproj'))
-      : vscode.l10n.t('NuGet: Solution');
+    const title = vscode.l10n.t('NuGet: {0}', solutionName(solution));
     const panel = vscode.window.createWebviewPanel('nukeeper.manager', title, vscode.ViewColumn.Active, {
       enableScripts: true,
       retainContextWhenHidden: true,
       localResourceRoots: [vscode.Uri.joinPath(context.extensionUri, 'dist'), vscode.Uri.joinPath(context.extensionUri, 'media')],
     });
     panel.iconPath = vscode.Uri.joinPath(context.extensionUri, 'media', 'nukeeper.svg');
-    ManagerPanel.panels.set(key, new ManagerPanel(context, provider, panel, project, options, key));
+    ManagerPanel.panels.set(key, new ManagerPanel(context, solutions, panel, solution));
   }
 
   private readonly disposables: vscode.Disposable[] = [];
@@ -62,35 +54,24 @@ export class ManagerPanel {
   private reloadTimer: NodeJS.Timeout | undefined;
   private busy = false;
 
-  private readonly provider: PackagesProvider;
+  private readonly solutions: Solutions;
   private readonly panel: vscode.WebviewPanel;
-  private readonly project: vscode.Uri | undefined;
-  private options: ShowOptions;
-  private readonly key: string;
+  private readonly solution: vscode.Uri;
 
-  private constructor(
-    context: vscode.ExtensionContext,
-    provider: PackagesProvider,
-    panel: vscode.WebviewPanel,
-    project: vscode.Uri | undefined,
-    options: ShowOptions,
-    key: string,
-  ) {
-    this.provider = provider;
+  private constructor(context: vscode.ExtensionContext, solutions: Solutions, panel: vscode.WebviewPanel, solution: vscode.Uri) {
+    this.solutions = solutions;
     this.panel = panel;
-    this.project = project;
-    this.options = options;
-    this.key = key;
+    this.solution = solution;
     panel.webview.html = this.html(context);
     this.disposables.push(
       panel.onDidDispose(() => this.dispose()),
       panel.webview.onDidReceiveMessage((m: ToHost) => void this.onMessage(m)),
-      provider.onDidInvalidate(uri => this.scheduleReload(uri)),
+      solutions.onDidInvalidate(uri => this.scheduleReload(uri)),
     );
   }
 
   private dispose(): void {
-    ManagerPanel.panels.delete(this.key);
+    ManagerPanel.panels.delete(this.solution.toString());
     clearTimeout(this.reloadTimer);
     this.disposables.forEach(d => d.dispose());
   }
@@ -102,14 +83,9 @@ export class ManagerPanel {
   private initMessage(): Extract<ToWebview, { type: 'init' }> {
     return {
       type: 'init',
-      mode: this.project ? 'project' : 'solution',
-      title: this.project
-        ? path.basename(this.project.fsPath, '.csproj')
-        : (vscode.workspace.name ?? vscode.l10n.t('Workspace')),
+      title: solutionName(this.solution),
       sources: this.sources.map(s => ({ name: s.name })),
       strings: Object.fromEntries(WEBVIEW_STRINGS.map(k => [k, vscode.l10n.t(k)])),
-      tab: this.options.tab ?? 'browse',
-      select: this.options.select,
     };
   }
 
@@ -117,7 +93,6 @@ export class ManagerPanel {
     switch (m.type) {
       case 'ready':
         this.post(this.initMessage());
-        this.options = {};
         await Promise.all([this.loadSources(), this.loadAll()]);
         return;
       case 'search':
@@ -154,12 +129,8 @@ export class ManagerPanel {
       }
       case 'refresh':
         resetFeedCaches();
-        if (this.project) this.provider.invalidate(this.project);
-        else this.provider.refresh();
+        this.solutions.refresh();
         await this.loadSources();
-        return;
-      case 'openProject':
-        await vscode.window.showTextDocument(vscode.Uri.parse(m.uri));
         return;
       case 'openUrl':
         if (/^https?:\/\//i.test(m.url)) await vscode.env.openExternal(vscode.Uri.parse(m.url));
@@ -170,9 +141,8 @@ export class ManagerPanel {
   // ---------- Projects ----------
 
   private async loadSources(): Promise<void> {
-    const dir = this.project ? path.dirname(this.project.fsPath) : vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
     try {
-      const sources = dir ? await listSources(dir) : [];
+      const sources = await listSources(path.dirname(this.solution.fsPath));
       this.sources = sources.length > 0 ? sources : [NUGET_ORG];
     } catch {
       this.sources = [NUGET_ORG];
@@ -181,7 +151,12 @@ export class ManagerPanel {
   }
 
   private async loadAll(): Promise<void> {
-    this.projects = this.project ? [this.project] : (await this.provider.findProjects()).map(p => p.file);
+    try {
+      this.projects = await this.solutions.projectsOf(this.solution);
+    } catch {
+      // Solution deleted or unreadable: the panel stays open, empty.
+      this.projects = [];
+    }
     const keep = new Set(this.projects.map(String));
     for (const k of this.states.keys()) if (!keep.has(k)) this.states.delete(k);
     this.prereleaseLatest.clear();
@@ -210,7 +185,7 @@ export class ManagerPanel {
 
   private async loadProject(uri: vscode.Uri): Promise<void> {
     try {
-      const { data, warnings } = await this.provider.load(uri);
+      const { data, warnings } = await this.solutions.load(uri);
       let pre = new Map<string, string>();
       const preWarnings: string[] = [];
       if (this.prerelease) {
@@ -353,7 +328,7 @@ export class ManagerPanel {
       this.busy = false;
       this.post({ type: 'busy', text: '' });
       // Central package management changes Directory.Packages.props, which the .csproj watcher misses.
-      for (const uri of touched) this.provider.invalidate(vscode.Uri.parse(uri));
+      for (const uri of touched) this.solutions.invalidate(vscode.Uri.parse(uri));
     }
     if (failures.length > 0) void vscode.window.showErrorMessage(failures.join('\n'));
   }
@@ -384,4 +359,8 @@ export class ManagerPanel {
 </body>
 </html>`;
   }
+}
+
+function solutionName(solution: vscode.Uri): string {
+  return path.basename(solution.fsPath).replace(/\.slnx?$/i, '');
 }

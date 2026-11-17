@@ -49,34 +49,3 @@ export function compareVersions(a: string, b: string): number {
   if (pa && pb) return compareParsed(pa, pb);
   return a.toLowerCase().localeCompare(b.toLowerCase());
 }
-
-/** Tests a version against a NuGet range: "[1.0,2.0)", "(, 1.5.0)", "[1.2.3]" or "1.0" (minimum inclusive). */
-export function inRange(range: string, version: string): boolean {
-  range = range.trim();
-  const v = parseVersion(version);
-  if (!range || !v) return false;
-  if (range[0] !== '[' && range[0] !== '(') {
-    const min = parseVersion(range);
-    return min !== undefined && compareParsed(v, min) >= 0;
-  }
-  const parts = range.slice(1, -1).split(',');
-  if (parts.length === 1) {
-    const exact = parseVersion(parts[0]);
-    return exact !== undefined && compareParsed(v, exact) === 0;
-  }
-  const lo = parts[0].trim();
-  const hi = parts[1].trim();
-  if (lo) {
-    const l = parseVersion(lo);
-    if (!l) return false;
-    const c = compareParsed(v, l);
-    if (c < 0 || (c === 0 && range[0] === '(')) return false;
-  }
-  if (hi) {
-    const h = parseVersion(hi);
-    if (!h) return false;
-    const c = compareParsed(v, h);
-    if (c > 0 || (c === 0 && range.endsWith(')'))) return false;
-  }
-  return true;
-}
