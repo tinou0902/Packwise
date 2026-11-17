@@ -1,6 +1,6 @@
 {
   "description": "Manage the NuGet packages of your .NET solutions in a Visual Studio-like package manager: browse, install, update, consolidate, vulnerable and deprecated packages.",
-  "viewContainer.nukeeper": "NuGet",
+  "viewContainer.packwise": "NuGet",
   "view.solutions": "Solutions",
   "command.refresh": "Refresh",
   "command.manageSolution": "Manage NuGet Packages for Solution…"

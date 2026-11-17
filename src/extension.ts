@@ -4,14 +4,14 @@ import { setLogger } from './dotnet.ts';
 import { ManagerPanel } from './manager/panel.ts';
 import { Solutions } from './workspace.ts';
 
-const LAST_SOLUTION = 'nukeeper.lastSolution';
+const LAST_SOLUTION = 'packwise.lastSolution';
 
 export function activate(context: vscode.ExtensionContext): void {
-  const output = vscode.window.createOutputChannel('NuKeeper', { log: true });
+  const output = vscode.window.createOutputChannel('Packwise', { log: true });
   setLogger(line => output.info(line));
   const solutions = new Solutions();
   const list = new SolutionList(solutions);
-  const view = vscode.window.createTreeView('nukeeper.solutions', { treeDataProvider: list });
+  const view = vscode.window.createTreeView('packwise.solutions', { treeDataProvider: list });
   context.subscriptions.push(output, solutions, list, view);
   void solutions.find();
 
@@ -35,11 +35,11 @@ export function activate(context: vscode.ExtensionContext): void {
 
   context.subscriptions.push(
     // From the list, the Explorer or the editor title (.sln/.slnx resource), or the palette.
-    vscode.commands.registerCommand('nukeeper.manageSolution', async (arg?: vscode.Uri) => {
+    vscode.commands.registerCommand('packwise.manageSolution', async (arg?: vscode.Uri) => {
       const solution = arg instanceof vscode.Uri ? arg : await pickSolution(solutions);
       if (solution) open(solution);
     }),
-    vscode.commands.registerCommand('nukeeper.refresh', () => solutions.refresh()),
+    vscode.commands.registerCommand('packwise.refresh', () => solutions.refresh()),
   );
 }
 
@@ -88,7 +88,7 @@ class SolutionList implements vscode.TreeDataProvider<vscode.Uri>, vscode.Dispos
     item.description = dir === '.' ? '' : dir;
     item.iconPath = new vscode.ThemeIcon('package');
     item.tooltip = file.fsPath;
-    item.command = { command: 'nukeeper.manageSolution', title: vscode.l10n.t('Manage NuGet Packages for Solution'), arguments: [file] };
+    item.command = { command: 'packwise.manageSolution', title: vscode.l10n.t('Manage NuGet Packages for Solution'), arguments: [file] };
     return item;
   }
 }
