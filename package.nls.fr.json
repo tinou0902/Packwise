@@ -1,15 +1,7 @@
 {
-  "description": "Gérez les paquets NuGet de vos projets .NET : paquets obsolètes, transitifs et vulnérables, mise à jour et suppression.",
-  "view.packages": "Paquets NuGet",
+  "description": "Gérez les paquets NuGet de vos solutions .NET dans un gestionnaire de packages comme celui de Visual Studio : parcourir, installer, mettre à jour, consolider, packages vulnérables et dépréciés.",
   "viewContainer.nukeeper": "NuGet",
+  "view.solutions": "Solutions",
   "command.refresh": "Recharger",
-  "command.filter": "Filtrer les paquets",
-  "command.updateToLatest": "Mettre à jour (dernière stable)",
-  "command.chooseVersion": "Choisir une version…",
-  "command.remove": "Supprimer le paquet",
-  "command.openOnNuGet": "Ouvrir sur nuget.org",
-  "command.openProjectFile": "Ouvrir le fichier projet",
-  "command.manageSolution": "Gérer les packages NuGet de la solution…",
-  "command.manageProject": "Gérer les packages NuGet…",
-  "command.manageProjectPackage": "Gérer dans le gestionnaire de packages…"
+  "command.manageSolution": "Gérer les packages NuGet de la solution…"
 }

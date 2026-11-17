@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { applyOutdated, applyVulnerable, isOutdated, isVulnerable, parseList } from '../src/model.ts';
+import { applyOutdated, applyVulnerable, parseList } from '../src/model.ts';
 
 const list = JSON.stringify({
   projects: [{
@@ -48,7 +48,9 @@ test('applyOutdated and applyVulnerable annotate packages', () => {
       vulnerabilities: [{ severity: 'High', advisoryurl: 'https://github.com/advisories/GHSA-x' }],
     }] }] }],
   }));
-  assert.equal(isOutdated(data.packages.get('serilog')!), true);
-  assert.equal(isVulnerable(data.packages.get('system.text.json')!), true);
-  assert.equal(isOutdated(data.packages.get('system.text.json')!), false);
+  assert.equal(data.packages.get('serilog')!.latest, '4.2.0');
+  assert.deepEqual(data.packages.get('system.text.json')!.vulnerabilities, [
+    { severity: 'High', advisoryUrl: 'https://github.com/advisories/GHSA-x' },
+  ]);
+  assert.equal(data.packages.get('system.text.json')!.latest, '');
 });
