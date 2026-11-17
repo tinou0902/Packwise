@@ -1,6 +1,7 @@
 {
   "description": "Gérez les paquets NuGet de vos projets .NET : paquets obsolètes, transitifs et vulnérables, mise à jour et suppression.",
   "view.packages": "Paquets NuGet",
+  "viewContainer.nukeeper": "NuGet",
   "command.refresh": "Recharger",
   "command.filter": "Filtrer les paquets",
   "command.updateToLatest": "Mettre à jour (dernière stable)",

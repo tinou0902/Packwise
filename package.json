@@ -2,7 +2,7 @@
   "name": "nukeeper",
   "displayName": "NuKeeper",
   "description": "%description%",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "publisher": "tinou0902",
   "private": true,
   "type": "module",
@@ -29,8 +29,17 @@
   "main": "./dist/extension.cjs",
   "l10n": "./l10n",
   "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "nukeeper",
+          "title": "%viewContainer.nukeeper%",
+          "icon": "media/nukeeper.svg"
+        }
+      ]
+    },
     "views": {
-      "explorer": [
+      "nukeeper": [
         {
           "id": "nukeeper.packages",
           "name": "%view.packages%",
