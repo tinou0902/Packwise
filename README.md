@@ -46,4 +46,4 @@ npm run build     # bundle to dist/extension.cjs (F5 in VS Code to debug)
 npm run package   # produce nukeeper-<version>.vsix
 ```
 
-Install a build with `code --install-extension nukeeper-<version>.vsix`. The CI publishes the `.vsix` as a job artifact.
+Install a build with `code --install-extension nukeeper-<version>.vsix`. The CI keeps the `.vsix` of every pipeline as a job artifact (90 days). Pushing a `vX.Y.Z` tag matching the `package.json` version also stores it in the package registry and creates a GitLab release linking to it.
