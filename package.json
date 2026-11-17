@@ -17,13 +17,18 @@
     "vscode": "^1.105.0"
   },
   "categories": [
+    "Programming Languages",
     "Other"
   ],
   "keywords": [
     "nuget",
     "dotnet",
+    ".NET",
+    "package manager",
     "packages",
-    "csproj"
+    "csproj",
+    "sln",
+    "slnx"
   ],
   "activationEvents": [
     "workspaceContains:**/*.{sln,slnx}"
