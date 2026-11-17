@@ -59,3 +59,7 @@ npm run package   # produce nukeeper-<version>.vsix
 ```
 
 Install a build with `code --install-extension nukeeper-<version>.vsix`. The CI keeps the `.vsix` of every pipeline as a job artifact (90 days). Pushing a `vX.Y.Z` tag matching the `package.json` version also stores it in the package registry and creates a GitLab release linking to it.
+
+## License
+
+[MIT](https://gitlab.hexxusdata.com/perso/nukeeper/vscode/-/blob/main/LICENSE)

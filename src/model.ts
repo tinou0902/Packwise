@@ -1,9 +1,5 @@
+import type { Advisory } from './advisory.ts';
 import { compareVersions } from './semver.ts';
-
-export interface Vulnerability {
-  severity: string;
-  advisoryUrl: string;
-}
 
 export interface Package {
   id: string;
@@ -15,7 +11,7 @@ export interface Package {
   latest: string;
   /** Referenced directly by the project file. */
   isDirect: boolean;
-  vulnerabilities: Vulnerability[];
+  vulnerabilities: Advisory[];
 }
 
 export interface ProjectData {
@@ -42,13 +38,10 @@ interface ListOutput {
   projects?: { frameworks?: ListedFramework[] }[];
 }
 
-function frameworksOf(json: string, strict: boolean): ListedFramework[] {
+/** Frameworks of every project of the output; undefined when the output has no project list. */
+function frameworksOf(json: string): ListedFramework[] | undefined {
   const doc = JSON.parse(json) as ListOutput;
-  if (!Array.isArray(doc.projects)) {
-    if (strict) throw new Error("Invalid 'dotnet list package' output: missing 'projects'.");
-    return [];
-  }
-  return doc.projects.flatMap(p => p.frameworks ?? []);
+  return Array.isArray(doc.projects) ? doc.projects.flatMap(p => p.frameworks ?? []) : undefined;
 }
 
 function getOrAdd(data: ProjectData, id: string): Package {
@@ -64,7 +57,9 @@ function getOrAdd(data: ProjectData, id: string): Package {
 /** Parses `dotnet list package --include-transitive --format json`. */
 export function parseList(json: string): ProjectData {
   const data: ProjectData = { frameworks: [], packages: new Map() };
-  for (const fw of frameworksOf(json, true)) {
+  const frameworks = frameworksOf(json);
+  if (!frameworks) throw new Error("Invalid 'dotnet list package' output: missing 'projects'.");
+  for (const fw of frameworks) {
     if (fw.framework && !data.frameworks.includes(fw.framework)) data.frameworks.push(fw.framework);
     for (const [list, direct] of [[fw.topLevelPackages, true], [fw.transitivePackages, false]] as const) {
       for (const p of list ?? []) {
@@ -93,7 +88,7 @@ export function applyOutdated(data: ProjectData, json: string): void {
 /** Latest versions reported by `dotnet list package --outdated --format json` (lower-cased id → highest latest). */
 export function latestVersions(json: string): Map<string, string> {
   const latest = new Map<string, string>();
-  for (const fw of frameworksOf(json, false)) {
+  for (const fw of frameworksOf(json) ?? []) {
     for (const p of fw.topLevelPackages ?? []) {
       if (!p.id || !p.latestVersion) continue;
       const key = p.id.toLowerCase();
@@ -106,7 +101,7 @@ export function latestVersions(json: string): Map<string, string> {
 
 /** Applies `dotnet list package --vulnerable --include-transitive --format json`. */
 export function applyVulnerable(data: ProjectData, json: string): void {
-  for (const fw of frameworksOf(json, false)) {
+  for (const fw of frameworksOf(json) ?? []) {
     for (const p of [...(fw.topLevelPackages ?? []), ...(fw.transitivePackages ?? [])]) {
       if (!p.id) continue;
       const pkg = getOrAdd(data, p.id);

@@ -1,7 +1,8 @@
 /// <reference lib="dom" />
 /* Package manager webview: layout and behaviour of Visual Studio's "Manage NuGet Packages" window. */
 
-import { compareVersions, isPrerelease } from '../../semver.ts';
+import { worstSeverity } from '../../advisory.ts';
+import { compareVersions } from '../../semver.ts';
 import {
   ALL_SOURCES,
   type InstalledPackage,
@@ -13,6 +14,18 @@ import {
   type VersionDetails,
 } from '../protocol.ts';
 import type { StringKey } from '../strings.ts';
+import {
+  formatDownloads,
+  installedVersion,
+  installsOf as installsIn,
+  maxVersion,
+  nugetOrgPage,
+  rowsFor as rowsIn,
+  updateTarget as targetOf,
+  versionChoices,
+  type Row,
+  type VersionChoice,
+} from './packages.ts';
 
 declare function acquireVsCodeApi(): {
   postMessage(message: ToHost): void;
@@ -37,23 +50,6 @@ interface Summary {
   versions?: VersionDetails[];
   nugetOrg?: boolean;
   error?: string;
-}
-
-interface Install {
-  project: ProjectState;
-  pkg: InstalledPackage;
-}
-
-/** One package line of the left list. */
-interface Row {
-  id: string;
-  key: string;
-  hit?: SearchHit;
-  /** Top-level references in the panel's projects. */
-  installs: Install[];
-  /** Version offered by the Updates tab. */
-  target?: string;
-  transitive?: boolean;
 }
 
 const persisted = vscode.getState() ?? {};
@@ -87,7 +83,6 @@ function t(key: StringKey, ...args: (string | number)[]): string {
 const lower = (s: string) => s.toLowerCase();
 /** VS Code display language (set on <html> by the host). */
 const locale = document.documentElement.lang || undefined;
-const installedVersion = (p: InstalledPackage) => p.requested || p.resolved;
 
 // ---------- DOM helpers ----------
 
@@ -145,87 +140,11 @@ function link(text: string, url: string): HTMLElement {
   return h('a', { href: '#', title: url, onclick: (e: Event) => { e.preventDefault(); send({ type: 'openUrl', url }); } }, text);
 }
 
-function formatDownloads(n: number): string {
-  const units: [number, string][] = [[1e9, 'B'], [1e6, 'M'], [1e3, 'K']];
-  for (const [v, u] of units) if (n >= v) return `${(n / v).toFixed(n / v >= 100 ? 0 : 1).replace(/\.0$/, '')}${u}`;
-  return String(n);
-}
-
 // ---------- Derived data ----------
 
-function installsOf(key: string): Install[] {
-  return state.projects.flatMap(project =>
-    project.packages.filter(p => p.isDirect && lower(p.id) === key).map(pkg => ({ project, pkg })),
-  );
-}
-
-function updateTarget(p: InstalledPackage): string | undefined {
-  const candidates = [p.latest, state.prerelease ? p.latestPrerelease : ''].filter(Boolean);
-  const best = candidates.sort(compareVersions).at(-1);
-  return best && p.resolved && compareVersions(p.resolved, best) < 0 ? best : undefined;
-}
-
-function maxVersion(versions: (string | undefined)[]): string | undefined {
-  return versions.filter((v): v is string => !!v).sort(compareVersions).at(-1);
-}
-
-function matchesQuery(id: string): boolean {
-  const q = state.query.trim().toLowerCase();
-  return !q || q.split(/\s+/).every(w => id.toLowerCase().includes(w));
-}
-
-/** Direct packages across projects, keyed by lower-cased id. */
-function directPackages(): Map<string, Row> {
-  const rows = new Map<string, Row>();
-  for (const project of state.projects) {
-    for (const pkg of project.packages) {
-      if (!pkg.isDirect) continue;
-      const key = lower(pkg.id);
-      let row = rows.get(key);
-      if (!row) rows.set(key, (row = { id: pkg.id, key, installs: [] }));
-      row.installs.push({ project, pkg });
-    }
-  }
-  return rows;
-}
-
-function rowsFor(tab: Tab): { rows: Row[]; transitive: Row[] } {
-  const sortById = (a: Row, b: Row) => a.id.localeCompare(b.id);
-  switch (tab) {
-    case 'browse':
-      return { rows: state.browse.hits.map(hit => ({ id: hit.id, key: lower(hit.id), hit, installs: installsOf(lower(hit.id)) })), transitive: [] };
-    case 'installed': {
-      const direct = directPackages();
-      const transitive = new Map<string, Row>();
-      for (const project of state.projects) {
-        for (const pkg of project.packages) {
-          const key = lower(pkg.id);
-          if (pkg.isDirect || direct.has(key) || transitive.has(key) || !matchesQuery(pkg.id)) continue;
-          transitive.set(key, { id: pkg.id, key, installs: [], transitive: true });
-        }
-      }
-      return {
-        rows: [...direct.values()].filter(r => matchesQuery(r.id)).sort(sortById),
-        transitive: [...transitive.values()].sort(sortById),
-      };
-    }
-    case 'updates':
-      return {
-        rows: [...directPackages().values()]
-          .map(r => ({ ...r, target: maxVersion(r.installs.map(i => updateTarget(i.pkg))) }))
-          .filter(r => r.target && matchesQuery(r.id))
-          .sort(sortById),
-        transitive: [],
-      };
-    case 'consolidate':
-      return {
-        rows: [...directPackages().values()]
-          .filter(r => new Set(r.installs.map(i => lower(i.pkg.resolved))).size > 1 && matchesQuery(r.id))
-          .sort(sortById),
-        transitive: [],
-      };
-  }
-}
+const installsOf = (key: string) => installsIn(state.projects, key);
+const updateTarget = (p: InstalledPackage) => targetOf(p, state.prerelease);
+const rowsFor = (tab: Tab) => rowsIn(tab, { projects: state.projects, hits: state.browse.hits, query: state.query, prerelease: state.prerelease });
 
 function summaryOf(key: string): Summary | undefined {
   return state.summaries.get(key);
@@ -504,30 +423,15 @@ function select(id: string | undefined): void {
 
 // ---------- Detail pane ----------
 
-interface VersionChoice {
-  value: string;
-  label: string;
-}
-
-function versionChoices(versions: VersionDetails[], installedVersions: string[]): VersionChoice[] {
-  const keep = versions
-    .filter(v => installedVersions.some(i => lower(i) === lower(v.version)) || (v.listed && (state.prerelease || !isPrerelease(v.version))))
-    .reverse();
-  const choices: VersionChoice[] = [];
-  const stable = keep.find(v => !isPrerelease(v.version));
-  const pre = keep.find(v => isPrerelease(v.version));
-  if (stable) choices.push({ value: stable.version, label: t('Latest stable {0}', stable.version) });
-  if (state.prerelease && pre && (!stable || compareVersions(pre.version, stable.version) > 0))
-    choices.push({ value: pre.version, label: t('Latest prerelease {0}', pre.version) });
-  for (const v of keep) {
-    const flags = [
-      v.vulnerabilities.length > 0 && t('vulnerable'),
-      v.deprecation && t('deprecated'),
-      !v.listed && t('unlisted'),
-    ].filter(Boolean);
-    choices.push({ value: v.version, label: flags.length ? `${v.version} (${flags.join(', ')})` : v.version });
+function choiceLabel(c: VersionChoice): string {
+  switch (c.kind) {
+    case 'latestStable':
+      return t('Latest stable {0}', c.value);
+    case 'latestPrerelease':
+      return t('Latest prerelease {0}', c.value);
+    case 'version':
+      return c.flags.length > 0 ? `${c.value} (${c.flags.map(f => t(f)).join(', ')})` : c.value;
   }
-  return choices;
 }
 
 function renderDetails(): void {
@@ -545,7 +449,7 @@ function renderDetails(): void {
   const installs = installsOf(key);
   const installedVersions = installs.map(i => installedVersion(i.pkg));
   const versions = summary?.versions ?? [];
-  const choices = versionChoices(versions, installedVersions);
+  const choices = versionChoices(versions, installedVersions, state.prerelease);
 
   // Default version: the update target, else the latest stable (or prerelease when allowed).
   if (!state.selectedVersion || (versions.length > 0 && !choices.some(c => lower(c.value) === lower(state.selectedVersion!)))) {
@@ -583,8 +487,9 @@ function renderDetails(): void {
     class: 'version-select',
     disabled: choices.length === 0,
     onchange: (e: Event) => { state.selectedVersion = (e.target as HTMLSelectElement).value; renderDetails(); },
-  }, ...(choices.length > 0 ? choices : [{ value: selected ?? '', label: selected ?? t('Loading…') }]).map((c, i) =>
-    h('option', { value: c.value, selected: i === choices.findIndex(x => lower(x.value) === lower(selected ?? '')) }, c.label)));
+  }, ...(choices.length > 0
+    ? choices.map((c, i) => h('option', { value: c.value, selected: i === choices.findIndex(x => lower(x.value) === lower(selected ?? '')) }, choiceLabel(c)))
+    : [h('option', { value: selected ?? '', selected: true }, selected ?? t('Loading…'))]));
 
   const checked = state.projects.filter(p => state.checkedProjects.has(p.uri));
   const allChecked = state.projects.length > 0 && checked.length === state.projects.length;
@@ -638,7 +543,7 @@ function renderDetails(): void {
   // ----- Warnings of the selected version -----
   const advisories = details?.vulnerabilities ?? [];
   if (advisories.length > 0) {
-    const worst = advisories.map(a => a.severity).sort((a, b) => severityRank(b) - severityRank(a))[0];
+    const worst = worstSeverity(advisories)!; // Non-empty list.
     children.push(h('div', { class: 'banner error' }, icon('warning'),
       h('div', null, t('This package version has a known {0} severity vulnerability.', worst),
         ...advisories.map(a => h('div', null, link(a.advisoryUrl, a.advisoryUrl))))));
@@ -692,14 +597,6 @@ function renderDetails(): void {
 
   detailPane.replaceChildren(...children.filter((c): c is Node | string => !!c));
   detailPane.scrollTop = scroll;
-}
-
-function nugetOrgPage(id: string, version: string | undefined): string {
-  return `https://www.nuget.org/packages/${encodeURIComponent(id)}${version ? `/${encodeURIComponent(version)}` : ''}`;
-}
-
-function severityRank(severity: string): number {
-  return ['Low', 'Moderate', 'High', 'Critical'].indexOf(severity);
 }
 
 function toggleProject(uri: string): void {

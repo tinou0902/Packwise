@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { PromiseCache } from './cache.ts';
 import { loadProject, type LoadResult } from './dotnet.ts';
 import { parseSolution } from './solution.ts';
 
@@ -14,7 +15,7 @@ export class Solutions implements vscode.Disposable {
   readonly onDidInvalidate = this.invalidated.event;
 
   private solutions: Promise<vscode.Uri[]> | undefined;
-  private readonly cache = new Map<string, Promise<LoadResult>>();
+  private readonly cache = new PromiseCache<string, LoadResult>();
   private readonly disposables: vscode.Disposable[] = [this.changed, this.invalidated];
 
   constructor() {
@@ -58,14 +59,7 @@ export class Solutions implements vscode.Disposable {
 
   /** Packages of a project. */
   load(file: vscode.Uri): Promise<LoadResult> {
-    const key = file.toString();
-    let p = this.cache.get(key);
-    if (!p) {
-      p = loadProject(file.fsPath);
-      this.cache.set(key, p);
-      p.catch(() => this.cache.delete(key)); // Retry on next load.
-    }
-    return p;
+    return this.cache.get(file.toString(), () => loadProject(file.fsPath));
   }
 
   /** Reloads one project (after an update, a removal or an edit of its file). */
@@ -85,8 +79,4 @@ export class Solutions implements vscode.Disposable {
     this.changed.fire();
     this.invalidated.fire(undefined);
   }
-}
-
-export function errorMessage(e: unknown): string {
-  return e instanceof Error ? e.message : String(e);
 }
