@@ -31,10 +31,13 @@ const EXCLUDE = '**/{bin,obj,node_modules,packages}/**';
 export class PackagesProvider implements vscode.TreeDataProvider<Node>, vscode.Disposable {
   private readonly changed = new vscode.EventEmitter<Node | undefined>();
   readonly onDidChangeTreeData = this.changed.event;
+  private readonly invalidated = new vscode.EventEmitter<vscode.Uri | undefined>();
+  /** A project (or every project when undefined) must be reloaded; the package manager panels listen to it. */
+  readonly onDidInvalidate = this.invalidated.event;
 
   private projects: ProjectNode[] | undefined;
   private readonly cache = new Map<string, Promise<LoadResult>>();
-  private readonly disposables: vscode.Disposable[] = [this.changed];
+  private readonly disposables: vscode.Disposable[] = [this.changed, this.invalidated];
   filter: Filter = 'all';
 
   constructor() {
@@ -58,12 +61,14 @@ export class PackagesProvider implements vscode.TreeDataProvider<Node>, vscode.D
     this.projects = undefined;
     this.cache.clear();
     this.changed.fire(undefined);
+    this.invalidated.fire(undefined);
   }
 
   /** Reloads one project (after an update, a removal or an edit of its file). */
   invalidate(file: vscode.Uri): void {
     this.cache.delete(file.toString());
     this.changed.fire(this.projects?.find(p => p.file.toString() === file.toString()));
+    this.invalidated.fire(file);
   }
 
   setFilter(filter: Filter): void {
@@ -81,11 +86,12 @@ export class PackagesProvider implements vscode.TreeDataProvider<Node>, vscode.D
     return this.projects;
   }
 
-  private load(project: ProjectNode): Promise<LoadResult> {
-    const key = project.file.toString();
+  /** Packages of a project, shared by the tree and the package manager panels. */
+  load(file: vscode.Uri): Promise<LoadResult> {
+    const key = file.toString();
     let p = this.cache.get(key);
     if (!p) {
-      p = loadProject(project.file.fsPath);
+      p = loadProject(file.fsPath);
       this.cache.set(key, p);
       p.catch(() => this.cache.delete(key)); // Retry on next expansion.
     }
@@ -98,7 +104,7 @@ export class PackagesProvider implements vscode.TreeDataProvider<Node>, vscode.D
 
     let result: LoadResult;
     try {
-      result = await this.load(node);
+      result = await this.load(node.file);
     } catch (e) {
       return [{ kind: 'message', text: errorMessage(e), icon: 'error', color: 'errorForeground' }];
     }

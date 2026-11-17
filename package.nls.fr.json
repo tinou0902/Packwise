@@ -7,5 +7,8 @@
   "command.chooseVersion": "Choisir une version…",
   "command.remove": "Supprimer le paquet",
   "command.openOnNuGet": "Ouvrir sur nuget.org",
-  "command.openProjectFile": "Ouvrir le fichier projet"
+  "command.openProjectFile": "Ouvrir le fichier projet",
+  "command.manageSolution": "Gérer les packages NuGet de la solution…",
+  "command.manageProject": "Gérer les packages NuGet…",
+  "command.manageProjectPackage": "Gérer dans le gestionnaire de packages…"
 }
