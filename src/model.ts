@@ -87,13 +87,24 @@ export function parseList(json: string): ProjectData {
 
 /** Applies `dotnet list package --outdated --format json` (latestVersion on top-level packages). */
 export function applyOutdated(data: ProjectData, json: string): void {
+  for (const [key, version] of latestVersions(json)) {
+    const pkg = data.packages.get(key);
+    if (pkg) pkg.latest = version;
+  }
+}
+
+/** Latest versions reported by `dotnet list package --outdated --format json` (lower-cased id → highest latest). */
+export function latestVersions(json: string): Map<string, string> {
+  const latest = new Map<string, string>();
   for (const fw of frameworksOf(json, false)) {
     for (const p of fw.topLevelPackages ?? []) {
       if (!p.id || !p.latestVersion) continue;
-      const pkg = data.packages.get(p.id.toLowerCase());
-      if (pkg && (!pkg.latest || compareVersions(pkg.latest, p.latestVersion) < 0)) pkg.latest = p.latestVersion;
+      const key = p.id.toLowerCase();
+      const current = latest.get(key);
+      if (!current || compareVersions(current, p.latestVersion) < 0) latest.set(key, p.latestVersion);
     }
   }
+  return latest;
 }
 
 /** Applies `dotnet list package --vulnerable --include-transitive --format json`. */

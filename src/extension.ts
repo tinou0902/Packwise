@@ -1,11 +1,15 @@
 import * as vscode from 'vscode';
-import { addPackage, removePackage } from './dotnet.ts';
+import { addPackage, removePackage, setLogger } from './dotnet.ts';
 import { advisoriesFor, getVersions, getVulnerabilityDb, resetVulnerabilityDb, type VulnerableRange } from './feed.ts';
+import { ManagerPanel } from './manager/panel.ts';
 import { compareVersions, isPrerelease } from './semver.ts';
 import { errorMessage, PackagesProvider, type Filter, type PackageNode, type ProjectNode } from './tree.ts';
 
 export function activate(context: vscode.ExtensionContext): void {
+  const output = vscode.window.createOutputChannel('NuKeeper', { log: true });
+  setLogger(line => output.info(line));
   const provider = new PackagesProvider();
+  context.subscriptions.push(output);
   const view = vscode.window.createTreeView('nukeeper.packages', { treeDataProvider: provider, showCollapseAll: true });
   context.subscriptions.push(provider, view);
   void provider.findProjects();
@@ -70,9 +74,33 @@ export function activate(context: vscode.ExtensionContext): void {
   );
 
   command<ProjectNode>('nukeeper.openProjectFile', node => vscode.window.showTextDocument(node.file));
+
+  command('nukeeper.manageSolution', () => ManagerPanel.show(context, provider, undefined));
+
+  // From the tree (project node), the Explorer or the editor title (.csproj resource), or the palette (active editor).
+  command<ProjectNode | vscode.Uri | undefined>('nukeeper.manageProject', async arg => {
+    const file = arg instanceof vscode.Uri ? arg : arg?.kind === 'project' ? arg.file : await pickProject(provider);
+    if (file) ManagerPanel.show(context, provider, file);
+  });
+
+  command<PackageNode>('nukeeper.manageProjectPackage', node =>
+    ManagerPanel.show(context, provider, node.project.file, { tab: 'installed', select: node.pkg.id }),
+  );
 }
 
 export function deactivate(): void {}
+
+async function pickProject(provider: PackagesProvider): Promise<vscode.Uri | undefined> {
+  const active = vscode.window.activeTextEditor?.document.uri;
+  if (active?.fsPath.endsWith('.csproj')) return active;
+  const projects = await provider.findProjects();
+  if (projects.length <= 1) return projects[0]?.file;
+  const picked = await vscode.window.showQuickPick(
+    projects.map(p => ({ label: vscode.workspace.asRelativePath(p.file), file: p.file })),
+    { title: vscode.l10n.t('Manage NuGet packages of…') },
+  );
+  return picked?.file;
+}
 
 async function runWithProgress(title: string, task: () => Promise<void>): Promise<boolean> {
   try {

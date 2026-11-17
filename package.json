@@ -2,7 +2,7 @@
   "name": "nukeeper",
   "displayName": "NuKeeper",
   "description": "%description%",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "publisher": "tinou0902",
   "private": true,
   "type": "module",
@@ -81,6 +81,23 @@
         "title": "%command.openProjectFile%",
         "category": "NuKeeper",
         "icon": "$(go-to-file)"
+      },
+      {
+        "command": "nukeeper.manageSolution",
+        "title": "%command.manageSolution%",
+        "category": "NuKeeper",
+        "icon": "$(package)"
+      },
+      {
+        "command": "nukeeper.manageProject",
+        "title": "%command.manageProject%",
+        "category": "NuKeeper",
+        "icon": "$(package)"
+      },
+      {
+        "command": "nukeeper.manageProjectPackage",
+        "title": "%command.manageProjectPackage%",
+        "category": "NuKeeper"
       }
     ],
     "menus": {
@@ -104,9 +121,18 @@
         {
           "command": "nukeeper.openProjectFile",
           "when": "false"
+        },
+        {
+          "command": "nukeeper.manageProjectPackage",
+          "when": "false"
         }
       ],
       "view/title": [
+        {
+          "command": "nukeeper.manageSolution",
+          "when": "view == nukeeper.packages",
+          "group": "navigation@0"
+        },
         {
           "command": "nukeeper.filter",
           "when": "view == nukeeper.packages",
@@ -158,16 +184,40 @@
           "command": "nukeeper.openProjectFile",
           "when": "view == nukeeper.packages && viewItem == project",
           "group": "2_open@1"
+        },
+        {
+          "command": "nukeeper.manageProject",
+          "when": "view == nukeeper.packages && viewItem == project",
+          "group": "1_manage@1"
+        },
+        {
+          "command": "nukeeper.manageProjectPackage",
+          "when": "view == nukeeper.packages && viewItem =~ /\\bpackage\\b/",
+          "group": "0_manage@1"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "nukeeper.manageProject",
+          "when": "resourceExtname == .csproj",
+          "group": "navigation@9"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "nukeeper.manageProject",
+          "when": "resourceExtname == .csproj",
+          "group": "navigation"
         }
       ]
     }
   },
   "scripts": {
-    "build": "esbuild src/extension.ts --bundle --outfile=dist/extension.cjs --external:vscode --format=cjs --platform=node --target=node22 --sourcemap",
-    "watch": "npm run build -- --watch",
+    "build": "esbuild src/extension.ts --bundle --outfile=dist/extension.cjs --external:vscode --format=cjs --platform=node --target=node22 --sourcemap && esbuild src/manager/webview/main.ts --bundle --outfile=dist/webview.js --format=iife --platform=browser --target=es2022 --sourcemap",
+    "watch": "esbuild src/extension.ts --bundle --outfile=dist/extension.cjs --external:vscode --format=cjs --platform=node --target=node22 --sourcemap --watch=forever & esbuild src/manager/webview/main.ts --bundle --outfile=dist/webview.js --format=iife --platform=browser --target=es2022 --sourcemap --watch=forever",
     "typecheck": "tsc -p .",
     "test": "node --test \"test/**/*.test.ts\"",
-    "package": "esbuild src/extension.ts --bundle --outfile=dist/extension.cjs --external:vscode --format=cjs --platform=node --target=node22 --minify && vsce package --no-dependencies --skip-license"
+    "package": "esbuild src/extension.ts --bundle --outfile=dist/extension.cjs --external:vscode --format=cjs --platform=node --target=node22 --minify && esbuild src/manager/webview/main.ts --bundle --outfile=dist/webview.js --format=iife --platform=browser --target=es2022 --minify && vsce package --no-dependencies --skip-license"
   },
   "devDependencies": {
     "@types/node": "^24.19.2",

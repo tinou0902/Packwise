@@ -1,5 +1,6 @@
 **
 !dist/extension.cjs
+!dist/webview.js
 !package.json
 !package.nls*.json
 !l10n/**
