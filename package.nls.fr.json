@@ -1,0 +1,11 @@
+{
+  "description": "Gérez les paquets NuGet de vos projets .NET : paquets obsolètes, transitifs et vulnérables, mise à jour et suppression.",
+  "view.packages": "Paquets NuGet",
+  "command.refresh": "Recharger",
+  "command.filter": "Filtrer les paquets",
+  "command.updateToLatest": "Mettre à jour (dernière stable)",
+  "command.chooseVersion": "Choisir une version…",
+  "command.remove": "Supprimer le paquet",
+  "command.openOnNuGet": "Ouvrir sur nuget.org",
+  "command.openProjectFile": "Ouvrir le fichier projet"
+}

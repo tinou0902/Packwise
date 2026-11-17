@@ -1,0 +1,11 @@
+{
+  "description": "Manage the NuGet packages of your .NET projects: outdated, transitive and vulnerable packages, update and removal.",
+  "view.packages": "NuGet Packages",
+  "command.refresh": "Refresh",
+  "command.filter": "Filter Packages",
+  "command.updateToLatest": "Update to Latest Stable",
+  "command.chooseVersion": "Choose Version…",
+  "command.remove": "Remove Package",
+  "command.openOnNuGet": "Open on nuget.org",
+  "command.openProjectFile": "Open Project File"
+}

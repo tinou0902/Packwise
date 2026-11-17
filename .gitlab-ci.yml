@@ -1,0 +1,28 @@
+image: node:24-alpine
+
+stages:
+  - check
+  - package
+
+cache:
+  key:
+    files: [package-lock.json]
+  paths: [.npm/]
+
+before_script:
+  - npm ci --cache .npm --prefer-offline
+
+check:
+  stage: check
+  script:
+    - npm run typecheck
+    - npm test
+
+package:
+  stage: package
+  script:
+    - npm run package
+  artifacts:
+    name: nukeeper-vscode-$CI_COMMIT_SHORT_SHA
+    paths: ['*.vsix']
+    expire_in: 90 days
