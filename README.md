@@ -4,10 +4,18 @@ Manage the NuGet packages of your .NET solutions in a package manager modelled o
 **Manage NuGet Packages for Solution** window: browse, install, update, uninstall and consolidate packages, with
 vulnerable and deprecated versions flagged.
 
-VS Code counterpart of the [Packwise TUI](https://gitlab.hexxusdata.com/perso/nukeeper/tui):
+![Browse tab: search results and package details](images/browse.png)
 
-- installed, outdated and vulnerable packages through the `dotnet list package` CLI (honours your `NuGet.Config`);
-- search, version history and metadata through the NuGet v3 API of the configured package sources.
+## Features
+
+- Search the package sources of your `NuGet.Config` and see, on each result, which version your projects use.
+- Install, update and uninstall packages in one or several projects of the solution at once.
+- Update every outdated package in one go from the **Updates** tab.
+- Spot vulnerable, deprecated and unlisted versions before picking one.
+- Align packages installed with different versions across projects (**Consolidate**).
+- English and French user interface.
+
+![Updates tab: outdated packages selected for a bulk update](images/updates.png)
 
 ## Requirements
 
@@ -50,6 +58,9 @@ A project that was never restored is restored automatically.
 
 ## Development
 
+Installed and outdated packages come from the `dotnet list package` CLI; search, version history and metadata from
+the NuGet v3 API of the configured package sources.
+
 ```sh
 npm ci
 npm test          # unit tests (node:test, native TypeScript)
@@ -62,6 +73,6 @@ Install a build with `code --install-extension packwise-<version>.vsix`. The CI 
 
 ## License
 
-[MIT](https://gitlab.hexxusdata.com/perso/nukeeper/vscode/-/blob/main/LICENSE)
+[MIT](LICENSE)
 
 Packwise is an independent project, not affiliated with or endorsed by Microsoft or the .NET Foundation.

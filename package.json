@@ -11,19 +11,28 @@
   "galleryBanner": { "color": "#0f172a", "theme": "dark" },
   "repository": {
     "type": "git",
-    "url": "https://gitlab.hexxusdata.com/perso/nukeeper/vscode.git"
+    "url": "https://github.com/tinou0902/packwise.git"
   },
+  "bugs": {
+    "url": "https://github.com/tinou0902/packwise/issues"
+  },
+  "homepage": "https://github.com/tinou0902/packwise#readme",
   "engines": {
     "vscode": "^1.105.0"
   },
   "categories": [
+    "Programming Languages",
     "Other"
   ],
   "keywords": [
     "nuget",
     "dotnet",
+    ".NET",
+    "package manager",
     "packages",
-    "csproj"
+    "csproj",
+    "sln",
+    "slnx"
   ],
   "activationEvents": [
     "workspaceContains:**/*.{sln,slnx}"
