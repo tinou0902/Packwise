@@ -8,7 +8,7 @@
   "type": "module",
   "license": "MIT",
   "icon": "media/icon.png",
-  "galleryBanner": { "color": "#1f3f8f", "theme": "dark" },
+  "galleryBanner": { "color": "#0f172a", "theme": "dark" },
   "repository": {
     "type": "git",
     "url": "https://gitlab.hexxusdata.com/perso/nukeeper/vscode.git"

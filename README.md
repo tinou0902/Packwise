@@ -62,4 +62,4 @@ Install a build with `code --install-extension nukeeper-<version>.vsix`. The CI 
 
 ## License
 
-[MIT](LICENSE)
+[MIT](https://gitlab.hexxusdata.com/perso/nukeeper/vscode/-/blob/main/LICENSE)
