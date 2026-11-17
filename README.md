@@ -1,6 +1,6 @@
 # NuKeeper for VS Code
 
-Manage the NuGet packages of the .NET projects in your workspace, from the Explorer: declared and resolved versions,
+Manage the NuGet packages of the .NET projects in your workspace, from the activity bar: declared and resolved versions,
 latest stable version, direct and transitive packages, vulnerabilities, update and removal.
 
 VS Code counterpart of the [NuKeeper TUI](https://gitlab.hexxusdata.com/perso/nukeeper/tui), with the same data sources:
@@ -15,7 +15,7 @@ VS Code counterpart of the [NuKeeper TUI](https://gitlab.hexxusdata.com/perso/nu
 
 ## Usage
 
-The **NuGet Packages** view appears in the Explorer when the workspace contains a `.csproj`
+The **NuGet** icon appears in the activity bar when the workspace contains a `.csproj`; it opens the **NuGet Packages** view
 (`bin`, `obj`, `node_modules` and `packages` folders are ignored). Expand a project to load its packages;
 a project that was never restored is restored automatically.
 

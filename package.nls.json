@@ -1,6 +1,7 @@
 {
   "description": "Manage the NuGet packages of your .NET projects: outdated, transitive and vulnerable packages, update and removal.",
   "view.packages": "NuGet Packages",
+  "viewContainer.nukeeper": "NuGet",
   "command.refresh": "Refresh",
   "command.filter": "Filter Packages",
   "command.updateToLatest": "Update to Latest Stable",
