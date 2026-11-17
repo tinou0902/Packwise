@@ -1,22 +1,17 @@
 /** Messages between the package manager panel (extension host) and its webview. Type-only: shared by both bundles. */
 
+import type { Package } from '../model.ts';
 import type { SearchHit, VersionDetails } from '../nuget.ts';
 
-export type { Advisory, Deprecation, Dependencies, SearchHit, VersionDetails } from '../nuget.ts';
+export type { Advisory } from '../advisory.ts';
+export type { Deprecation, Dependencies, SearchHit, VersionDetails } from '../nuget.ts';
 
 export const ALL_SOURCES = '*';
 
-export interface InstalledPackage {
-  id: string;
-  /** Range declared in the project file ("" for transitive packages). */
-  requested: string;
-  resolved: string;
-  /** Latest stable version reported by dotnet ("" = unknown or up to date). */
-  latest: string;
+/** A package of a project, as listed by the dotnet CLI. */
+export interface InstalledPackage extends Package {
   /** Latest version including prereleases (only once the "include prerelease" box was ticked). */
   latestPrerelease: string;
-  isDirect: boolean;
-  vulnerabilities: { severity: string; advisoryUrl: string }[];
 }
 
 export interface ProjectState {

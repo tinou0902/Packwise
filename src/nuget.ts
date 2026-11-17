@@ -1,3 +1,5 @@
+import { severityName, type Advisory } from './advisory.ts';
+import { PromiseCache } from './cache.ts';
 import { compareVersions } from './semver.ts';
 
 /**
@@ -15,17 +17,11 @@ export interface Source {
 export const NUGET_ORG: Source = { name: 'nuget.org', url: 'https://api.nuget.org/v3/index.json' };
 
 const TIMEOUT_MS = 20_000;
-const SEVERITIES = ['Low', 'Moderate', 'High', 'Critical'];
 
 async function getJson<T>(url: string): Promise<T> {
   const res = await fetch(url, { signal: AbortSignal.timeout(TIMEOUT_MS) });
   if (!res.ok) throw new Error(`${res.status} ${res.statusText} (${url})`);
   return JSON.parse((await res.text()).replace(/^﻿/, '')) as T;
-}
-
-export interface Advisory {
-  severity: string;
-  advisoryUrl: string;
 }
 
 export interface Deprecation {
@@ -102,11 +98,6 @@ interface RawPage {
 
 const joinList = (v: string | string[] | undefined, sep: string): string => (Array.isArray(v) ? v.join(sep) : (v ?? ''));
 
-function severityName(s: string | number | undefined): string {
-  const n = typeof s === 'number' ? s : Number(s);
-  return Number.isInteger(n) ? (SEVERITIES[n] ?? 'Unknown') : String(s ?? 'Unknown');
-}
-
 export function toVersionDetails(e: RawCatalogEntry, fallbackId: string): VersionDetails {
   const published = e.published ?? '';
   return {
@@ -134,9 +125,19 @@ export function toVersionDetails(e: RawCatalogEntry, fallbackId: string): Versio
   };
 }
 
-export class FeedClient {
+/** What the package manager needs from a package source (the HTTP client below, or a fake in tests). */
+export interface PackageFeed {
+  readonly source: Source;
+  /** The source is nuget.org (package pages and abuse reports exist there). */
+  readonly isNuGetOrg: boolean;
+  search(query: string, skip: number, take: number, prerelease: boolean): Promise<{ hits: SearchHit[]; total: number }>;
+  find(id: string, prerelease: boolean): Promise<SearchHit | undefined>;
+  versions(id: string): Promise<VersionDetails[] | undefined>;
+}
+
+export class FeedClient implements PackageFeed {
   private resources?: Promise<Map<string, string>>;
-  private readonly registrations = new Map<string, Promise<VersionDetails[] | undefined>>();
+  private readonly registrations = new PromiseCache<string, VersionDetails[] | undefined>();
 
   readonly source: Source;
 
@@ -206,14 +207,7 @@ export class FeedClient {
 
   /** Every version of a package, oldest first; undefined when the source does not have it. Cached. */
   versions(id: string): Promise<VersionDetails[] | undefined> {
-    const key = id.toLowerCase();
-    let p = this.registrations.get(key);
-    if (!p) {
-      p = this.loadRegistration(id);
-      this.registrations.set(key, p);
-      p.catch(() => this.registrations.delete(key));
-    }
-    return p;
+    return this.registrations.get(id.toLowerCase(), () => this.loadRegistration(id));
   }
 
   private async loadRegistration(id: string): Promise<VersionDetails[] | undefined> {

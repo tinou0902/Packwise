@@ -6,7 +6,9 @@
   "publisher": "tinou0902",
   "private": true,
   "type": "module",
-  "license": "UNLICENSED",
+  "license": "MIT",
+  "icon": "media/icon.png",
+  "galleryBanner": { "color": "#1f3f8f", "theme": "dark" },
   "repository": {
     "type": "git",
     "url": "https://gitlab.hexxusdata.com/perso/nukeeper/vscode.git"
@@ -91,7 +93,7 @@
     "watch": "esbuild src/extension.ts --bundle --outfile=dist/extension.cjs --external:vscode --format=cjs --platform=node --target=node22 --sourcemap --watch=forever & esbuild src/manager/webview/main.ts --bundle --outfile=dist/webview.js --format=iife --platform=browser --target=es2022 --sourcemap --watch=forever",
     "typecheck": "tsc -p .",
     "test": "node --test \"test/**/*.test.ts\"",
-    "package": "esbuild src/extension.ts --bundle --outfile=dist/extension.cjs --external:vscode --format=cjs --platform=node --target=node22 --minify && esbuild src/manager/webview/main.ts --bundle --outfile=dist/webview.js --format=iife --platform=browser --target=es2022 --minify && vsce package --no-dependencies --skip-license"
+    "package": "esbuild src/extension.ts --bundle --outfile=dist/extension.cjs --external:vscode --format=cjs --platform=node --target=node22 --minify && esbuild src/manager/webview/main.ts --bundle --outfile=dist/webview.js --format=iife --platform=browser --target=es2022 --minify && vsce package --no-dependencies"
   },
   "devDependencies": {
     "@types/node": "^24.19.2",
