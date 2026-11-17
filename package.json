@@ -1,6 +1,6 @@
 {
-  "name": "nukeeper",
-  "displayName": "NuKeeper",
+  "name": "packwise",
+  "displayName": "Packwise — NuGet Package Manager",
   "description": "%description%",
   "version": "0.4.0",
   "publisher": "tinou0902",
@@ -34,54 +34,54 @@
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "nukeeper",
-          "title": "%viewContainer.nukeeper%",
-          "icon": "media/nukeeper.svg"
+          "id": "packwise",
+          "title": "%viewContainer.packwise%",
+          "icon": "media/packwise.svg"
         }
       ]
     },
     "views": {
-      "nukeeper": [
+      "packwise": [
         {
-          "id": "nukeeper.solutions",
+          "id": "packwise.solutions",
           "name": "%view.solutions%",
-          "icon": "media/nukeeper.svg",
-          "when": "nukeeper.hasSolutions"
+          "icon": "media/packwise.svg",
+          "when": "packwise.hasSolutions"
         }
       ]
     },
     "commands": [
       {
-        "command": "nukeeper.manageSolution",
+        "command": "packwise.manageSolution",
         "title": "%command.manageSolution%",
-        "category": "NuKeeper",
+        "category": "Packwise",
         "icon": "$(package)"
       },
       {
-        "command": "nukeeper.refresh",
+        "command": "packwise.refresh",
         "title": "%command.refresh%",
-        "category": "NuKeeper",
+        "category": "Packwise",
         "icon": "$(refresh)"
       }
     ],
     "menus": {
       "view/title": [
         {
-          "command": "nukeeper.refresh",
-          "when": "view == nukeeper.solutions",
+          "command": "packwise.refresh",
+          "when": "view == packwise.solutions",
           "group": "navigation"
         }
       ],
       "explorer/context": [
         {
-          "command": "nukeeper.manageSolution",
+          "command": "packwise.manageSolution",
           "when": "resourceExtname =~ /^\\.slnx?$/",
           "group": "navigation@9"
         }
       ],
       "editor/title": [
         {
-          "command": "nukeeper.manageSolution",
+          "command": "packwise.manageSolution",
           "when": "resourceExtname =~ /^\\.slnx?$/",
           "group": "navigation"
         }

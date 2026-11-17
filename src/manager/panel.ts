@@ -36,12 +36,12 @@ export class ManagerPanel {
       return;
     }
     const title = vscode.l10n.t('NuGet: {0}', solutionName(solution));
-    const panel = vscode.window.createWebviewPanel('nukeeper.manager', title, vscode.ViewColumn.Active, {
+    const panel = vscode.window.createWebviewPanel('packwise.manager', title, vscode.ViewColumn.Active, {
       enableScripts: true,
       retainContextWhenHidden: true,
       localResourceRoots: [vscode.Uri.joinPath(context.extensionUri, 'dist'), vscode.Uri.joinPath(context.extensionUri, 'media')],
     });
-    panel.iconPath = vscode.Uri.joinPath(context.extensionUri, 'media', 'nukeeper.svg');
+    panel.iconPath = vscode.Uri.joinPath(context.extensionUri, 'media', 'packwise.svg');
     ManagerPanel.panels.set(key, new ManagerPanel(context, solutions, panel, solution));
   }
 

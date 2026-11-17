@@ -43,7 +43,7 @@ export class Solutions implements vscode.Disposable {
     this.solutions ??= (async () => {
       const files = await vscode.workspace.findFiles('**/*.{sln,slnx}', EXCLUDE);
       files.sort((a, b) => vscode.workspace.asRelativePath(a).localeCompare(vscode.workspace.asRelativePath(b)));
-      await vscode.commands.executeCommand('setContext', 'nukeeper.hasSolutions', files.length > 0);
+      await vscode.commands.executeCommand('setContext', 'packwise.hasSolutions', files.length > 0);
       return files;
     })();
     return this.solutions;
