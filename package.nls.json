@@ -1,7 +1,8 @@
 {
   "description": "Manage the NuGet packages of your .NET solutions in a Visual Studio-like package manager: browse, install, update, consolidate, vulnerable and deprecated packages.",
-  "viewContainer.packwise": "NuGet",
-  "view.solutions": "Solutions",
+  "viewContainer.packwise": "Packwise",
   "command.refresh": "Refresh",
-  "command.manageSolution": "Manage NuGet Packages for Solution…"
+  "view.roots": "Projects",
+  "command.manage": "Manage Packages…",
+  "config.ecosystems": "Package ecosystems Packwise looks for in the workspace. Turn one off to skip its files."
 }

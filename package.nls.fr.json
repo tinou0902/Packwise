@@ -1,7 +1,8 @@
 {
   "description": "Gérez les paquets NuGet de vos solutions .NET dans un gestionnaire de packages comme celui de Visual Studio : parcourir, installer, mettre à jour, consolider, packages vulnérables et dépréciés.",
-  "viewContainer.packwise": "NuGet",
-  "view.solutions": "Solutions",
+  "viewContainer.packwise": "Packwise",
   "command.refresh": "Recharger",
-  "command.manageSolution": "Gérer les packages NuGet de la solution…"
+  "view.roots": "Projets",
+  "command.manage": "Gérer les packages…",
+  "config.ecosystems": "Écosystèmes de packages recherchés par Packwise dans l’espace de travail. En désactiver un ignore ses fichiers."
 }

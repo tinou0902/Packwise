@@ -1,5 +1,5 @@
 /// <reference lib="dom" />
-/* Package manager webview: layout and behaviour of Visual Studio's "Manage NuGet Packages" window. */
+/* Package manager webview: layout and behaviour of Visual Studio's "Manage NuGet Packages" window, for any ecosystem. */
 
 import { worstSeverity } from '../../advisory.ts';
 import { RULES } from '../../ecosystems/rules.ts';
@@ -216,7 +216,7 @@ function renderStatic(): void {
   refreshButton.title = t('Refresh');
   prereleaseLabel.textContent = t('Include prerelease');
   sourceLabel.textContent = t('Package source:');
-  heading.textContent = t('NuGet Package Manager: {0}', t("Solution '{0}'", state.title));
+  heading.textContent = state.title;
   renderSources();
 }
 
@@ -323,7 +323,7 @@ function renderList(): void {
     if (loadingProjects) children.push(h('div', { class: 'message' }, h('span', { class: 'spinner' }), t('Loading…')));
     else {
       const empty = state.tab === 'updates' && !state.query ? t('All packages are up to date.')
-        : state.tab === 'consolidate' && !state.query ? t('Packages with different versions in the solution are shown here.')
+        : state.tab === 'consolidate' && !state.query ? t('Packages installed in several versions are shown here.')
           : t('No packages found');
       children.push(h('div', { class: 'message empty' }, empty));
     }
@@ -501,7 +501,7 @@ function renderDetails(): void {
   const checked = state.projects.filter(p => state.checkedProjects.has(p.uri));
   const allChecked = state.projects.length > 0 && checked.length === state.projects.length;
   const versionIn = (p: ProjectState) => p.packages.find(x => x.isDirect && idKey(x.id) === key);
-  if (new Set(installedVersions.map(lower)).size > 1) children.push(h('div', { class: 'banner info' }, t('Versions installed in the solution differ.')));
+  if (new Set(installedVersions.map(lower)).size > 1) children.push(h('div', { class: 'banner info' }, t('Several versions of this package are installed.')));
   children.push(h('table', { class: 'projects' },
     h('thead', null, h('tr', null,
       h('th', { class: 'check' }, h('input', {

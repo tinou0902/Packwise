@@ -25,11 +25,11 @@ vulnerable and deprecated versions flagged.
 
 ## Usage
 
-The **NuGet** icon appears in the activity bar when the workspace contains a solution (`bin`, `obj`, `node_modules` and
-`packages` folders are ignored). Clicking it opens the package manager of the solution in an editor tab. With several
-solutions, the sidebar lists them: pick one, and the icon then reopens the last one used.
-**Manage NuGet Packages for Solution…** is also in the context menu of a `.sln`/`.slnx` file in the Explorer, in the
-editor title of an open solution file, and in the command palette.
+The **Packwise** icon appears in the activity bar when the workspace contains a solution (`bin`, `obj`, `node_modules`
+and `packages` folders are ignored). Clicking it opens the package manager of the solution in an editor tab. With
+several solutions, the sidebar lists them: pick one, and the icon then reopens the last one used.
+**Manage Packages…** is also in the context menu of a `.sln`/`.slnx` file in the Explorer, in the editor title of an
+open solution file, and in the command palette. The `packwise.ecosystems` setting turns an ecosystem off.
 
 | Tab | Content |
 |---|---|

@@ -32,7 +32,7 @@ export interface InitMessage {
   type: 'init';
   /** Selects the identity and version rules of the webview. */
   ecosystem: EcosystemId;
-  /** Solution name. */
+  /** Heading of the panel ("NuGet Package Manager: Solution 'App'"). */
   title: string;
   sources: { name: string }[];
   strings: Record<string, string>;

@@ -17,6 +17,8 @@ export const nuget: Ecosystem = {
   id: 'nuget',
   label: 'NuGet',
   rootGlob: '**/*.{sln,slnx}',
+  excludeGlob: '**/{bin,obj,node_modules,packages}/**',
+  rootLabel: "Solution '{0}'",
   projectGlob: '**/*.csproj',
   defaultSources: [NUGET_ORG],
 
