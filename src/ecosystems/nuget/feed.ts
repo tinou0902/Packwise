@@ -1,7 +1,7 @@
 import { severityName } from '../../advisory.ts';
 import { PromiseCache } from '../../cache.ts';
 import type { PackageFeed, SearchHit, Source, VersionDetails } from '../../ecosystem.ts';
-import { compareVersions } from './semver.ts';
+import { compareVersions } from '../semver.ts';
 
 /**
  * NuGet v3 client for any HTTP package source (service index discovery), used by the package manager panel:

@@ -35,7 +35,8 @@
     "slnx"
   ],
   "activationEvents": [
-    "workspaceContains:**/*.{sln,slnx}"
+    "workspaceContains:**/*.{sln,slnx}",
+    "workspaceContains:**/package.json"
   ],
   "main": "./dist/extension.cjs",
   "l10n": "./l10n",
@@ -66,10 +67,11 @@
           "type": "object",
           "markdownDescription": "%config.ecosystems%",
           "properties": {
-            "nuget": { "type": "boolean", "default": true, "description": "NuGet (.NET solutions)" }
+            "nuget": { "type": "boolean", "default": true, "description": "NuGet (.NET solutions)" },
+            "npm": { "type": "boolean", "default": true, "description": "npm (package.json)" }
           },
           "additionalProperties": false,
-          "default": { "nuget": true }
+          "default": { "nuget": true, "npm": true }
         }
       }
     },
@@ -98,14 +100,14 @@
       "explorer/context": [
         {
           "command": "packwise.manage",
-          "when": "resourceExtname =~ /^\\.slnx?$/",
+          "when": "resourceExtname =~ /^\\.slnx?$/ || resourceFilename == package.json",
           "group": "navigation@9"
         }
       ],
       "editor/title": [
         {
           "command": "packwise.manage",
-          "when": "resourceExtname =~ /^\\.slnx?$/",
+          "when": "resourceExtname =~ /^\\.slnx?$/ || resourceFilename == package.json",
           "group": "navigation"
         }
       ]

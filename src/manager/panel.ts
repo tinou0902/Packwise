@@ -21,6 +21,8 @@ interface Change {
   /** Version to install ("" for a removal). */
   version: string;
   remove: boolean;
+  /** New reference as a development dependency. */
+  dev?: boolean;
 }
 
 /** Package manager editor, like Visual Studio's "Manage NuGet Packages for Solution". One per root file. */
@@ -89,6 +91,7 @@ export class ManagerPanel {
     return {
       type: 'init',
       ecosystem: this.ecosystem.id,
+      hasDevDependencies: this.ecosystem.hasDevDependencies,
       title: vscode.l10n.t(
         '{0} Package Manager: {1}',
         this.ecosystem.label,
@@ -123,7 +126,7 @@ export class ManagerPanel {
         if (m.on) await this.loadProjects(this.projects);
         return;
       case 'install':
-        return this.run(m.projects.map(uri => ({ uri, id: m.id, version: m.version, remove: false })));
+        return this.run(m.projects.map(uri => ({ uri, id: m.id, version: m.version, remove: false, dev: m.dev })));
       case 'update':
         if (m.updates.length > 1 && !(await this.confirmUpdate(m.updates))) return;
         return this.run(m.updates.flatMap(u => u.projects.map(uri => ({ uri, id: u.id, version: u.version, remove: false }))));
@@ -208,6 +211,7 @@ export class ManagerPanel {
       loading: true,
       error: '',
       warnings: [],
+      notice: '',
       packages: [],
     };
     this.states.set(key, { ...current, ...patch });
@@ -232,13 +236,16 @@ export class ManagerPanel {
         loading: false,
         error: '',
         warnings: [
-          ...warnings.map(w => (w === 'outdated' ? vscode.l10n.t('latest versions') : vscode.l10n.t('vulnerabilities'))),
+          ...warnings.filter(w => w !== 'readOnly').map(w => (w === 'outdated' ? vscode.l10n.t('latest versions') : vscode.l10n.t('vulnerabilities'))),
           ...preWarnings,
         ],
+        notice: warnings.includes('readOnly')
+          ? vscode.l10n.t('Read-only: this project is managed by another package manager, use it to change its packages.')
+          : '',
         packages: [...data.packages.values()].map(p => ({ ...p, latestPrerelease: pre.get(this.ecosystem.normalizeId(p.id)) ?? '' })),
       });
     } catch (e) {
-      this.setState(uri, { loading: false, error: errorMessage(e), warnings: [], packages: [] });
+      this.setState(uri, { loading: false, error: errorMessage(e), warnings: [], notice: '', packages: [] });
     }
     this.postProjects();
   }
@@ -286,7 +293,7 @@ export class ManagerPanel {
             const file = vscode.Uri.parse(c.uri).fsPath;
             try {
               if (c.remove) await this.ecosystem.remove(file, c.id);
-              else await this.ecosystem.add(file, c.id, c.version);
+              else await this.ecosystem.add(file, c.id, c.version, { dev: c.dev });
             } catch (e) {
               failures.push(`${project}: ${errorMessage(e)}`);
             }

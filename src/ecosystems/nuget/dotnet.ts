@@ -1,48 +1,12 @@
-import { execFile } from 'node:child_process';
 import * as path from 'node:path';
 import type { LoadResult, Source } from '../../ecosystem.ts';
-import { log } from '../../log.ts';
+import { ensureSuccess, run as runCli } from '../../process.ts';
 import { applyOutdated, applyVulnerable, latestVersions, parseList } from './model.ts';
 
-interface RunResult {
-  code: number;
-  stdout: string;
-  stderr: string;
-}
-
 /** Runs the `dotnet` CLI in `cwd`; never rejects on a non-zero exit code. */
-function run(cwd: string, args: string[], verbose = false): Promise<RunResult> {
-  log(`> dotnet ${args.join(' ')}`);
-  return new Promise((resolve, reject) => {
-    execFile(
-      'dotnet',
-      args,
-      {
-        cwd,
-        maxBuffer: 64 * 1024 * 1024,
-        // English output keeps the JSON keys and error messages stable.
-        env: { ...process.env, DOTNET_CLI_UI_LANGUAGE: 'en', DOTNET_NOLOGO: '1' },
-      },
-      (error, stdout, stderr) => {
-        if (error && typeof error.code !== 'number') {
-          reject(error.code === 'ENOENT' ? new Error('The dotnet CLI was not found on PATH.') : error);
-          return;
-        }
-        const code = typeof error?.code === 'number' ? error.code : 0;
-        if (verbose || code !== 0) log((stdout + stderr).trimEnd());
-        resolve({ code, stdout, stderr });
-      },
-    );
-  });
-}
-
-function firstLine(s: string): string {
-  const line = s.split('\n').map(l => l.trim()).find(l => l.length > 0) ?? s;
-  return line.length > 240 ? line.slice(0, 240) : line;
-}
-
-function ensureSuccess(r: RunResult): void {
-  if (r.code !== 0) throw new Error(firstLine(r.stderr.trim() ? r.stderr : r.stdout));
+function run(cwd: string, args: string[], verbose = false) {
+  // English output keeps the JSON keys and error messages stable.
+  return runCli('dotnet', args, { cwd, verbose, env: { DOTNET_CLI_UI_LANGUAGE: 'en', DOTNET_NOLOGO: '1' } });
 }
 
 const inProject = (projectFile: string, args: string[], verbose = false) => run(path.dirname(projectFile), args, verbose);

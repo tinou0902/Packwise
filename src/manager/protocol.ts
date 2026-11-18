@@ -23,6 +23,8 @@ export interface ProjectState {
   error: string;
   /** Data that could not be fetched (latest versions, vulnerabilities…), already localized. */
   warnings: string[];
+  /** Information about the project (read-only…), already localized. */
+  notice: string;
   packages: InstalledPackage[];
 }
 
@@ -34,6 +36,8 @@ export interface InitMessage {
   ecosystem: EcosystemId;
   /** Heading of the panel ("NuGet Package Manager: Solution 'App'"). */
   title: string;
+  /** Offers to install new packages as development dependencies. */
+  hasDevDependencies: boolean;
   sources: { name: string }[];
   strings: Record<string, string>;
 }
@@ -61,7 +65,8 @@ export type ToHost =
   /** Search hit + version history of one package (detail pane, installed rows). */
   | { type: 'summary'; id: string; prerelease: boolean; source: string }
   | { type: 'prerelease'; on: boolean }
-  | { type: 'install'; id: string; version: string; projects: string[] }
+  /** `dev`: new references go to the development dependencies (ecosystems that have them). */
+  | { type: 'install'; id: string; version: string; projects: string[]; dev: boolean }
   | { type: 'uninstall'; id: string; projects: string[] }
   | { type: 'update'; updates: { id: string; version: string; projects: string[] }[] }
   | { type: 'refresh' }
