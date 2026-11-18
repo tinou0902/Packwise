@@ -187,6 +187,17 @@ input[type='checkbox'] {
   background: var(--vscode-badge-background);
 }
 
+.kind {
+  font-size: 0.8em;
+  line-height: 1;
+  padding: 2px 5px;
+  margin-left: 6px;
+  border-radius: 3px;
+  border: 1px solid var(--vscode-badge-background);
+  color: var(--muted);
+  flex: none;
+}
+
 .heading {
   font-size: 1.1em;
   color: var(--muted);
@@ -564,6 +575,13 @@ button.group:hover:not(:disabled) {
   grid-template-columns: 70px minmax(0, 1fr) auto auto;
   align-items: center;
   gap: 8px;
+  margin-bottom: 8px;
+}
+
+.dev-option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   margin-bottom: 8px;
 }
 

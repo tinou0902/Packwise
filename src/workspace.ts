@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { PromiseCache } from './cache.ts';
 import type { Ecosystem, EcosystemId, LoadResult } from './ecosystem.ts';
+import { globToRegExp } from './glob.ts';
 
 /** A root file of the workspace (solution, package.json…) and the ecosystem managing it. */
 export interface Root {
@@ -80,7 +81,8 @@ export class Roots implements vscode.Disposable {
       const relative = (u: vscode.Uri) => vscode.workspace.asRelativePath(u);
       const found = await Promise.all(
         this.enabled.map(async ecosystem => {
-          const files = await vscode.workspace.findFiles(ecosystem.rootGlob, ecosystem.excludeGlob);
+          const found = await vscode.workspace.findFiles(ecosystem.rootGlob, ecosystem.excludeGlob);
+          const files = (await ecosystem.filterRoots(found.map(u => u.fsPath))).map(f => vscode.Uri.file(f));
           files.sort((a, b) => relative(a).localeCompare(relative(b)));
           return files.map(uri => ({ ecosystem, uri }));
         }),
@@ -92,9 +94,19 @@ export class Roots implements vscode.Disposable {
     return this.roots;
   }
 
-  /** The root of a file, if it is one. */
+  /** The root of a file: the file itself when it is a root, else the first root it is a project of. */
   async rootOf(uri: vscode.Uri): Promise<Root | undefined> {
-    return (await this.find()).find(r => r.uri.toString() === uri.toString());
+    const roots = await this.find();
+    const key = uri.toString();
+    const exact = roots.find(r => r.uri.toString() === key);
+    if (exact) return exact;
+    const file = vscode.workspace.asRelativePath(uri, false);
+    for (const root of roots) {
+      if (!globToRegExp(root.ecosystem.projectGlob).test(file)) continue;
+      const projects = await this.projectsOf(root).catch(() => []);
+      if (projects.some(p => p.toString() === key)) return root;
+    }
+    return undefined;
   }
 
   /** Project files of a root that exist on disk. */

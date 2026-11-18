@@ -56,6 +56,9 @@ const persisted = vscode.getState() ?? {};
 
 const state = {
   title: '',
+  hasDevDependencies: false,
+  /** "Development dependency" box of the install actions. */
+  dev: false,
   strings: {} as Record<string, string>,
   sources: [] as { name: string }[],
   source: persisted.source ?? ALL_SOURCES,
@@ -300,6 +303,7 @@ function renderList(): void {
   }
   const warnings = state.projects.filter(p => p.error || p.warnings.length);
   if (state.tab !== 'browse') {
+    for (const p of state.projects.filter(x => x.notice)) children.push(h('div', { class: 'message' }, `${p.name}: ${p.notice}`));
     for (const p of warnings) {
       children.push(h('div', { class: `message ${p.error ? 'error' : 'warning'}` }, icon('warning'), `${p.name}: ${p.error || p.warnings.join(', ')}`));
     }
@@ -355,6 +359,7 @@ function renderRow(row: Row): HTMLElement {
   const update = maxVersion(row.installs.map(i => updateTarget(i.pkg)));
   const latest = hit?.version;
 
+  const kinds = [...new Set(row.installs.map(i => i.pkg.kind).filter(k => k !== undefined))];
   const meta: string[] = [];
   if (hit?.authors) meta.push(t('by {0}', hit.authors));
   if (hit?.totalDownloads !== undefined) meta.push(t('{0} downloads', formatDownloads(hit.totalDownloads)));
@@ -400,6 +405,7 @@ function renderRow(row: Row): HTMLElement {
     h('div', { class: 'row-main' },
       h('div', { class: 'row-title' },
         h('span', { class: 'id' }, row.id),
+        ...kinds.map(k => h('span', { class: 'kind' }, k)),
         hit?.verified && h('span', { class: 'verified', title: t('Prefix reserved: verified owner') }, icon('verified')),
         meta.length > 0 && h('span', { class: 'meta' }, meta.join(', ')),
       ),
@@ -527,7 +533,7 @@ function renderDetails(): void {
       },
         h('td', { class: 'check' }, h('input', { type: 'checkbox', checked: state.checkedProjects.has(p.uri), onchange: () => toggleProject(p.uri) })),
         h('td', { title: p.path }, p.name),
-        h('td', null, pkg ? installedVersion(pkg) : p.loading ? '…' : ''),
+        h('td', null, pkg ? installedVersion(pkg) : p.loading ? '…' : '', pkg?.kind && h('span', { class: 'kind' }, pkg.kind)),
       );
     })),
   ));
@@ -538,7 +544,7 @@ function renderDetails(): void {
     versionSelect,
     h('button', {
       disabled: busy || !selected || toInstall.length === 0,
-      onclick: () => send({ type: 'install', id, version: selected!, projects: toInstall.map(p => p.uri) }),
+      onclick: () => send({ type: 'install', id, version: selected!, projects: toInstall.map(p => p.uri), dev: state.dev }),
     }, t('Install')),
     h('button', {
       class: 'secondary',
@@ -546,6 +552,12 @@ function renderDetails(): void {
       onclick: () => send({ type: 'uninstall', id, projects: toRemove.map(p => p.uri) }),
     }, t('Uninstall')),
   ));
+  // Existing references keep their dependency type: the box only applies to new ones.
+  if (state.hasDevDependencies && toInstall.some(p => !versionIn(p))) {
+    children.push(h('label', { class: 'dev-option' },
+      h('input', { type: 'checkbox', checked: state.dev, onchange: (e: Event) => { state.dev = (e.target as HTMLInputElement).checked; } }),
+      t('Development dependency')));
+  }
 
   // ----- Warnings of the selected version -----
   const advisories = details?.vulnerabilities ?? [];
@@ -750,6 +762,7 @@ window.addEventListener('message', (event: MessageEvent<ToWebview>) => {
     case 'init':
       rules = RULES[m.ecosystem];
       state.title = m.title;
+      state.hasDevDependencies = m.hasDevDependencies;
       state.strings = m.strings;
       state.sources = m.sources;
       renderStatic();

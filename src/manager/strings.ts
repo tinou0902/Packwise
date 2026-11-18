@@ -55,6 +55,7 @@ export const WEBVIEW_STRINGS = [
   'All packages are up to date.',
   'Prefix reserved: verified owner',
   'multiple',
+  'Development dependency',
 ] as const;
 
 export type StringKey = (typeof WEBVIEW_STRINGS)[number];

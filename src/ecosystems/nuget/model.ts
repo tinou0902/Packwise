@@ -1,6 +1,6 @@
 import type { Package, ProjectData } from '../../ecosystem.ts';
 import { nugetRules } from './rules.ts';
-import { compareVersions } from './semver.ts';
+import { compareVersions } from '../semver.ts';
 
 /* Shape of `dotnet list package --format json`:
  * { projects: [{ path, frameworks: [{ framework, topLevelPackages: [...], transitivePackages: [...] }] }] } */

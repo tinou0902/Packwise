@@ -17,7 +17,8 @@ const pkg = (id: string, resolved: string, extra: Partial<InstalledPackage> = {}
 });
 
 const project = (name: string, packages: InstalledPackage[]): ProjectState => ({
-  uri: `file:///${name}.csproj`, name, path: `${name}.csproj`, loading: false, error: '', warnings: [], packages,
+  uri: `file:///${name}.csproj`, name, path: `${name}.csproj`, loading: false, error: '', warnings: [],
+  notice: '', packages,
 });
 
 const projects = [

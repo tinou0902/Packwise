@@ -5,7 +5,7 @@
 
 import type { Advisory } from './advisory.ts';
 
-export type EcosystemId = 'nuget';
+export type EcosystemId = 'nuget' | 'npm';
 
 /** Package identity and version rules; pure, so the webview can use them too. */
 export interface PackageRules {
@@ -26,6 +26,8 @@ export interface Package {
   latest: string;
   /** Referenced directly by the project file. */
   isDirect: boolean;
+  /** Kind of a direct reference other than a regular one, shown as a badge (npm: "dev", "peer", "optional"). */
+  kind?: string;
   vulnerabilities: Advisory[];
 }
 
@@ -38,8 +40,11 @@ export interface ProjectData {
 
 export interface LoadResult {
   data: ProjectData;
-  /** Set when latest versions or vulnerabilities could not be fetched (offline, unreachable feed…). */
-  warnings: ('outdated' | 'vulnerable')[];
+  /**
+   * Set when latest versions or vulnerabilities could not be fetched (offline, unreachable feed…), or when the
+   * project is read-only (managed by a package manager Packwise cannot drive yet).
+   */
+  warnings: ('outdated' | 'vulnerable' | 'readOnly')[];
 }
 
 export interface Source {
@@ -109,6 +114,11 @@ export interface PackageFeed {
   versions(id: string): Promise<VersionDetails[] | undefined>;
 }
 
+export interface AddOptions {
+  /** New reference as a development dependency (ecosystems with `hasDevDependencies`). */
+  dev?: boolean;
+}
+
 /**
  * One package ecosystem. A root (a solution for NuGet) groups projects (`.csproj`); the CLI of the ecosystem
  * reads and changes the packages of each project, and its package sources are queried over HTTP.
@@ -127,7 +137,11 @@ export interface Ecosystem extends PackageRules {
   readonly projectGlob: string;
   /** Sources used when none is configured. */
   readonly defaultSources: readonly Source[];
+  /** Packages can be installed as development dependencies (`add` then honours `options.dev`). */
+  readonly hasDevDependencies: boolean;
 
+  /** Keeps the actual roots among the files matching `rootGlob` (absolute paths). */
+  filterRoots(files: string[]): Promise<string[]>;
   /** Display name of a root file. */
   rootName(rootFile: string): string;
   /** Display name of a project file. */
@@ -139,8 +153,8 @@ export interface Ecosystem extends PackageRules {
   load(projectFile: string): Promise<LoadResult>;
   /** Latest version of each direct package including prereleases (normalized id → version). */
   loadLatestPrerelease(projectFile: string): Promise<Map<string, string>>;
-  /** Adds a package reference, or changes its version when already referenced. */
-  add(projectFile: string, id: string, version: string): Promise<void>;
+  /** Adds a package reference, or changes its version when already referenced (keeping its kind). */
+  add(projectFile: string, id: string, version: string, options?: AddOptions): Promise<void>;
   remove(projectFile: string, id: string): Promise<void>;
 
   /** Package sources configured for a root. */

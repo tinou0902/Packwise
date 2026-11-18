@@ -21,6 +21,9 @@ export const nuget: Ecosystem = {
   rootLabel: "Solution '{0}'",
   projectGlob: '**/*.csproj',
   defaultSources: [NUGET_ORG],
+  hasDevDependencies: false,
+
+  filterRoots: async files => files,
 
   rootName: file => path.basename(file).replace(/\.slnx?$/i, ''),
   projectName: file => path.basename(file, '.csproj'),
@@ -33,7 +36,7 @@ export const nuget: Ecosystem = {
 
   load: loadProject,
   loadLatestPrerelease,
-  add: addPackage,
+  add: (file, id, version) => addPackage(file, id, version),
   remove: removePackage,
 
   // NuGet.Config files apply to the solution folder and its parents.

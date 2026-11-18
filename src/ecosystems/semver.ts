@@ -1,4 +1,4 @@
-/** Simplified semantic version, enough to compare NuGet versions. */
+/** Simplified semantic version, enough to compare NuGet and npm versions. */
 export interface SemVersion {
   major: number;
   minor: number;
