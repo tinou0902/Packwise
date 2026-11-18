@@ -106,7 +106,7 @@ export class ManagerPanel {
         const summary = await this.feeds.summary(m.id, m.prerelease, sourceName(m.source));
         const echo = { type: 'summary', id: m.id, prerelease: m.prerelease, source: m.source } as const;
         this.post(summary.found
-          ? { ...echo, hit: summary.hit, versions: summary.versions, nugetOrg: summary.nugetOrg }
+          ? { ...echo, hit: summary.hit, versions: summary.versions }
           : { ...echo, error: summary.error ?? vscode.l10n.t('{0} was not found in the selected package source.', m.id) });
         return;
       }

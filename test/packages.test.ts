@@ -4,7 +4,7 @@ import type { InstalledPackage, ProjectState, VersionDetails } from '../src/mana
 import {
   formatDownloads,
   matchesQuery,
-  nugetOrgPage,
+  galleryName,
   rowsFor,
   updateTarget,
   versionChoices,
@@ -92,12 +92,13 @@ test('versionChoices: shortcuts, then visible versions newest first with their f
   ]);
 });
 
-test('formatDownloads and nugetOrgPage', () => {
+test('formatDownloads and galleryName', () => {
   assert.equal(formatDownloads(950), '950');
   assert.equal(formatDownloads(1500), '1.5K');
   assert.equal(formatDownloads(2_000_000), '2M');
   assert.equal(formatDownloads(123_456_789), '123M');
   assert.equal(formatDownloads(4_200_000_000), '4.2B');
-  assert.equal(nugetOrgPage('Serilog'), 'https://www.nuget.org/packages/Serilog');
-  assert.equal(nugetOrgPage('A.B', '1.0.0-rc+1'), 'https://www.nuget.org/packages/A.B/1.0.0-rc%2B1');
+  assert.equal(galleryName('https://www.nuget.org/packages/Serilog/4.0.0'), 'nuget.org');
+  assert.equal(galleryName('https://npmjs.com/package/react'), 'npmjs.com');
+  assert.equal(galleryName('not a url'), 'not a url');
 });

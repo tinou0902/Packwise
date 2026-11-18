@@ -18,7 +18,6 @@ function fakeFeed(source: Source, packages: string[], total = packages.length, e
   const fail = () => Promise.reject(new Error(error));
   return {
     source,
-    isNuGetOrg: source.name === 'nuget.org',
     search: (_q, skip, take) => (error ? fail() : Promise.resolve({ hits: packages.slice(skip, skip + take).map(id => hit(id, source.name)), total })),
     find: id => (error ? fail() : Promise.resolve(packages.includes(id) ? hit(id, source.name) : undefined)),
     versions: id => (error ? fail() : Promise.resolve(packages.includes(id) ? [details(id, '1.0.0')] : undefined)),
@@ -58,7 +57,6 @@ test('summary comes from the first source that knows the package', async () => {
   const f = feeds();
   const found = await f.summary('Internal.Lib', false, undefined);
   assert.ok(found.found);
-  assert.equal(found.nugetOrg, false);
   assert.equal(found.hit?.source, 'private');
   assert.deepEqual(found.versions.map(v => v.version), ['1.0.0']);
 

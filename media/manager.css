@@ -630,7 +630,7 @@ button.group:hover:not(:disabled) {
   overflow-wrap: anywhere;
 }
 
-.dep-framework {
+.dep-group {
   margin-top: 6px;
   font-weight: 600;
 }

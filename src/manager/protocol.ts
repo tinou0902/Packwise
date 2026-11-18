@@ -50,7 +50,6 @@ export type ToWebview =
       source: string;
       hit?: SearchHit;
       versions?: VersionDetails[];
-      nugetOrg?: boolean;
       error?: string;
     }
   | { type: 'busy'; text: string };

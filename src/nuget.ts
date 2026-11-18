@@ -31,7 +31,8 @@ export interface Deprecation {
 }
 
 export interface Dependencies {
-  framework: string;
+  /** Dependency group (target framework for NuGet). */
+  group: string;
   packages: { id: string; range: string }[];
 }
 
@@ -53,6 +54,10 @@ export interface VersionDetails {
   vulnerabilities: Advisory[];
   deprecation?: Deprecation;
   dependencies: Dependencies[];
+  /** Page of this version on the public gallery of the source (nuget.org…), when there is one. */
+  galleryUrl?: string;
+  /** Where to report the package to the gallery, when it accepts reports. */
+  reportUrl?: string;
 }
 
 /** One search hit (latest matching version). */
@@ -98,11 +103,20 @@ interface RawPage {
 
 const joinList = (v: string | string[] | undefined, sep: string): string => (Array.isArray(v) ? v.join(sep) : (v ?? ''));
 
-export function toVersionDetails(e: RawCatalogEntry, fallbackId: string): VersionDetails {
+/** Package (or package version) page on nuget.org. */
+export function nugetOrgPage(id: string, version?: string): string {
+  return `https://www.nuget.org/packages/${encodeURIComponent(id)}${version ? `/${encodeURIComponent(version)}` : ''}`;
+}
+
+/** `onNuGetOrg`: the entry comes from nuget.org, which has package pages and abuse reports. */
+export function toVersionDetails(e: RawCatalogEntry, fallbackId: string, onNuGetOrg = false): VersionDetails {
   const published = e.published ?? '';
+  const id = e.id ?? fallbackId;
+  const version = e.version ?? '';
+  const page = onNuGetOrg ? nugetOrgPage(id, version) : undefined;
   return {
-    id: e.id ?? fallbackId,
-    version: e.version ?? '',
+    id,
+    version,
     // nuget.org marks unlisted versions with a 1900 publication date.
     listed: e.listed ?? !published.startsWith('1900'),
     title: e.title ?? '',
@@ -119,17 +133,17 @@ export function toVersionDetails(e: RawCatalogEntry, fallbackId: string): Versio
       ? { reasons: e.deprecation.reasons ?? [], message: e.deprecation.message ?? '', alternateId: e.deprecation.alternatePackage?.id ?? '' }
       : undefined,
     dependencies: (e.dependencyGroups ?? []).map(g => ({
-      framework: g.targetFramework || 'any',
+      group: g.targetFramework || 'any',
       packages: (g.dependencies ?? []).filter(d => d.id).map(d => ({ id: d.id!, range: d.range ?? '' })),
     })),
+    galleryUrl: page,
+    reportUrl: page && `${page}/ReportAbuse`,
   };
 }
 
 /** What the package manager needs from a package source (the HTTP client below, or a fake in tests). */
 export interface PackageFeed {
   readonly source: Source;
-  /** The source is nuget.org (package pages and abuse reports exist there). */
-  readonly isNuGetOrg: boolean;
   search(query: string, skip: number, take: number, prerelease: boolean): Promise<{ hits: SearchHit[]; total: number }>;
   find(id: string, prerelease: boolean): Promise<SearchHit | undefined>;
   versions(id: string): Promise<VersionDetails[] | undefined>;
@@ -145,7 +159,8 @@ export class FeedClient implements PackageFeed {
     this.source = source;
   }
 
-  get isNuGetOrg(): boolean {
+  /** nuget.org has package pages and abuse reports. */
+  private get isNuGetOrg(): boolean {
     return /^https:\/\/api\.nuget\.org\//i.test(this.source.url);
   }
 
@@ -224,7 +239,7 @@ export class FeedClient implements PackageFeed {
     const pages = await Promise.all((index.items ?? []).map(p => (p.items ? p : getJson<RawPage>(p['@id']))));
     return pages
       .flatMap(p => p.items ?? [])
-      .flatMap(i => (i.catalogEntry ? [toVersionDetails(i.catalogEntry, id)] : []))
+      .flatMap(i => (i.catalogEntry ? [toVersionDetails(i.catalogEntry, id, this.isNuGetOrg)] : []))
       .sort((a, b) => compareVersions(a.version, b.version));
   }
 }

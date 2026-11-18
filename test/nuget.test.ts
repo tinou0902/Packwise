@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { parseSources } from '../src/dotnet.ts';
 import { latestVersions } from '../src/model.ts';
-import { toVersionDetails } from '../src/nuget.ts';
+import { nugetOrgPage, toVersionDetails } from '../src/nuget.ts';
 
 test('parseSources keeps enabled HTTP sources', () => {
   const output = [
@@ -50,7 +50,16 @@ test('toVersionDetails maps a registration catalog entry', () => {
   assert.deepEqual(d.vulnerabilities, [{ severity: 'High', advisoryUrl: 'https://github.com/advisories/GHSA-x' }]);
   assert.deepEqual(d.deprecation, { reasons: ['Legacy'], message: '', alternateId: 'New.Package' });
   assert.deepEqual(d.dependencies, [
-    { framework: 'net8.0', packages: [{ id: 'Dep', range: '[1.0.0, )' }] },
-    { framework: 'any', packages: [] },
+    { group: 'net8.0', packages: [{ id: 'Dep', range: '[1.0.0, )' }] },
+    { group: 'any', packages: [] },
   ]);
+  assert.equal(d.galleryUrl, undefined);
+  assert.equal(d.reportUrl, undefined);
+});
+
+test('toVersionDetails links nuget.org entries to their gallery page', () => {
+  const d = toVersionDetails({ id: 'A.B', version: '1.0.0-rc+1' }, 'A.B', true);
+  assert.equal(d.galleryUrl, 'https://www.nuget.org/packages/A.B/1.0.0-rc%2B1');
+  assert.equal(d.reportUrl, 'https://www.nuget.org/packages/A.B/1.0.0-rc%2B1/ReportAbuse');
+  assert.equal(nugetOrgPage('Serilog'), 'https://www.nuget.org/packages/Serilog');
 });
