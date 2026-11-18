@@ -4,6 +4,8 @@
 
 - Files ignored by git are no longer listed as roots: build outputs such as `.next/` no longer add copies of
   `package.json`.
+- npm: the Browse tab no longer fails with "400 Bad Request" when the search is empty; it asks for a package name
+  instead, as the npm registry has no listing of popular packages.
 
 ## 0.5.0
 

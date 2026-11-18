@@ -13,7 +13,7 @@ import {
   workspacePatterns,
 } from '../src/ecosystems/npm/manifest.ts';
 import { applyAudit, applyOutdated, highestTag, parseTree } from '../src/ecosystems/npm/model.ts';
-import { encodeName, packumentVersions, parseConfig, parseSearch, registryFor } from '../src/ecosystems/npm/registry.ts';
+import { encodeName, packumentVersions, parseConfig, parseSearch, RegistryClient, registryFor } from '../src/ecosystems/npm/registry.ts';
 import { globToRegExp } from '../src/glob.ts';
 import { workspaceMatcher, workspaceMembers } from '../src/members.ts';
 
@@ -194,4 +194,12 @@ test('workspace discovery on disk', async () => {
   } finally {
     await fs.rm(dir, { recursive: true, force: true });
   }
+});
+
+test('an empty npm search returns nothing without querying the registry', async t => {
+  const fetch = t.mock.method(globalThis, 'fetch', () => Promise.reject(new Error('no request expected')));
+  const client = new RegistryClient({ name: 'npmjs.com', url: 'https://registry.npmjs.org/' });
+  assert.deepEqual(await client.search('', 0, 25), { hits: [], total: 0 });
+  assert.deepEqual(await client.search('   ', 0, 25), { hits: [], total: 0 });
+  assert.equal(fetch.mock.callCount(), 0);
 });

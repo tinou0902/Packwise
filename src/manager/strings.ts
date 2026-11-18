@@ -24,6 +24,7 @@ export const WEBVIEW_STRINGS = [
   'by {0}',
   '{0} downloads',
   'No packages found',
+  'Type a package name to search.',
   'Loading…',
   'Load more',
   'Select a package to see its details.',
