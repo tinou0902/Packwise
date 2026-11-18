@@ -19,7 +19,7 @@ import {
   installedVersion,
   installsOf as installsIn,
   maxVersion,
-  nugetOrgPage,
+  galleryName,
   rowsFor as rowsIn,
   updateTarget as targetOf,
   versionChoices,
@@ -48,7 +48,6 @@ interface Summary {
   loading: boolean;
   hit?: SearchHit;
   versions?: VersionDetails[];
-  nugetOrg?: boolean;
   error?: string;
 }
 
@@ -470,12 +469,12 @@ function renderDetails(): void {
         h('span', { class: 'id' }, id),
         hit?.verified && h('span', { class: 'verified', title: t('Prefix reserved: verified owner') }, icon('verified')),
       ),
-      summary?.nugetOrg && h('a', {
+      details?.galleryUrl && h('a', {
         class: 'icon-link',
         href: '#',
-        title: 'nuget.org',
-        onclick: (e: Event) => { e.preventDefault(); send({ type: 'openUrl', url: nugetOrgPage(id, selected) }); },
-      }, 'nuget.org', icon('external')),
+        title: galleryName(details.galleryUrl),
+        onclick: (e: Event) => { e.preventDefault(); send({ type: 'openUrl', url: details.galleryUrl! }); },
+      }, galleryName(details.galleryUrl), icon('external')),
     ),
   );
 
@@ -574,7 +573,7 @@ function renderDetails(): void {
       ['Downloads', hit?.totalDownloads !== undefined ? hit.totalDownloads.toLocaleString(locale) : ''],
       ['Date published', meta?.published ? new Date(meta.published).toLocaleString(locale, { dateStyle: 'full', timeStyle: 'short' }) : ''],
       ['Project URL', meta?.projectUrl ? link(meta.projectUrl, meta.projectUrl) : ''],
-      ['Report Abuse', summary?.nugetOrg && meta ? link(`${nugetOrgPage(id, meta.version)}/ReportAbuse`, `${nugetOrgPage(id, meta.version)}/ReportAbuse`) : ''],
+      ['Report Abuse', meta?.reportUrl ? link(meta.reportUrl, meta.reportUrl) : ''],
       ['Tags', meta?.tags.join(', ')],
     ];
     children.push(
@@ -587,7 +586,7 @@ function renderDetails(): void {
       children.push(h('h3', null, t('Dependencies')));
       if (groups.length === 0) children.push(h('p', { class: 'dim' }, t('No dependencies')));
       for (const g of groups) {
-        children.push(h('div', { class: 'dep-framework' }, g.framework));
+        children.push(h('div', { class: 'dep-group' }, g.group));
         children.push(g.packages.length === 0
           ? h('div', { class: 'dep dim' }, t('No dependencies'))
           : h('ul', { class: 'deps' }, ...g.packages.map(p => h('li', null, `${p.id} (${p.range})`))));
@@ -770,7 +769,7 @@ window.addEventListener('message', (event: MessageEvent<ToWebview>) => {
     case 'summary':
       // Answer to a request made before the prerelease box or the source changed.
       if (m.prerelease !== state.prerelease || m.source !== state.source) return;
-      state.summaries.set(lower(m.id), { loading: false, hit: m.hit, versions: m.versions, nugetOrg: m.nugetOrg, error: m.error });
+      state.summaries.set(lower(m.id), { loading: false, hit: m.hit, versions: m.versions, error: m.error });
       render();
       return;
     case 'busy':

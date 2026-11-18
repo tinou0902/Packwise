@@ -9,7 +9,7 @@ export interface SearchPage {
 }
 
 export type Summary =
-  | { found: true; hit?: SearchHit; versions: VersionDetails[]; nugetOrg: boolean }
+  | { found: true; hit?: SearchHit; versions: VersionDetails[] }
   | { found: false; error?: string };
 
 /** Feed clients by service index URL, shared by every panel (their registration cache too). */
@@ -81,7 +81,7 @@ export class Feeds {
         continue;
       }
       if (!versions.value) continue;
-      return { found: true, hit: hit.status === 'fulfilled' ? hit.value : undefined, versions: versions.value, nugetOrg: c.isNuGetOrg };
+      return { found: true, hit: hit.status === 'fulfilled' ? hit.value : undefined, versions: versions.value };
     }
     return { found: false, error: firstError };
   }

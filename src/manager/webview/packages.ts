@@ -155,7 +155,11 @@ export function versionChoices(versions: readonly VersionDetails[], installedVer
   return choices;
 }
 
-/** Package (or package version) page on nuget.org. */
-export function nugetOrgPage(id: string, version?: string): string {
-  return `https://www.nuget.org/packages/${encodeURIComponent(id)}${version ? `/${encodeURIComponent(version)}` : ''}`;
+/** Name of a gallery shown on its links: the host of the page URL without "www.". */
+export function galleryName(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return url;
+  }
 }

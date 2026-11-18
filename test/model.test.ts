@@ -22,7 +22,7 @@ const list = JSON.stringify({
 
 test('parseList merges frameworks and keeps the highest resolved version', () => {
   const data = parseList(list);
-  assert.deepEqual(data.frameworks, ['net8.0', 'net10.0']);
+  assert.deepEqual(data.groups, ['net8.0', 'net10.0']);
   assert.equal(data.packages.size, 2);
   const serilog = data.packages.get('serilog')!;
   assert.equal(serilog.isDirect, true);

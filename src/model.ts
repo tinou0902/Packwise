@@ -15,8 +15,9 @@ export interface Package {
 }
 
 export interface ProjectData {
-  frameworks: string[];
-  /** Packages merged across frameworks, keyed by lower-cased id. */
+  /** Groups the packages are resolved for (target frameworks for NuGet). */
+  groups: string[];
+  /** Packages merged across groups, keyed by lower-cased id. */
   packages: Map<string, Package>;
 }
 
@@ -56,11 +57,11 @@ function getOrAdd(data: ProjectData, id: string): Package {
 
 /** Parses `dotnet list package --include-transitive --format json`. */
 export function parseList(json: string): ProjectData {
-  const data: ProjectData = { frameworks: [], packages: new Map() };
+  const data: ProjectData = { groups: [], packages: new Map() };
   const frameworks = frameworksOf(json);
   if (!frameworks) throw new Error("Invalid 'dotnet list package' output: missing 'projects'.");
   for (const fw of frameworks) {
-    if (fw.framework && !data.frameworks.includes(fw.framework)) data.frameworks.push(fw.framework);
+    if (fw.framework && !data.groups.includes(fw.framework)) data.groups.push(fw.framework);
     for (const [list, direct] of [[fw.topLevelPackages, true], [fw.transitivePackages, false]] as const) {
       for (const p of list ?? []) {
         if (!p.id) continue;
