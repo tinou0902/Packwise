@@ -1,6 +1,6 @@
 import * as path from 'node:path';
 import type { LoadResult, Source } from '../../ecosystem.ts';
-import { ensureSuccess, run as runCli } from '../../process.ts';
+import { ensureSuccess, run as runCli, type RunResult } from '../../process.ts';
 import { applyOutdated, applyVulnerable, latestVersions, parseList } from './model.ts';
 
 /** Runs the `dotnet` CLI in `cwd`; never rejects on a non-zero exit code. */
@@ -11,23 +11,36 @@ function run(cwd: string, args: string[], verbose = false) {
 
 const inProject = (projectFile: string, args: string[], verbose = false) => run(path.dirname(projectFile), args, verbose);
 
+/**
+ * `dotnet list package` without its implicit restore: `restore` runs it once for every project, which halves the
+ * time of each call and spares concurrent restores of the same graph.
+ */
 const list = (projectFile: string, ...extra: string[]) =>
-  inProject(projectFile, ['list', projectFile, 'package', ...extra, '--format', 'json']);
+  inProject(projectFile, ['list', projectFile, 'package', ...extra, '--no-restore', '--format', 'json']);
+
+/** Restores the projects: the solution in one go when there are several, else the project. */
+export async function restore(solutionFile: string, projectFiles: string[]): Promise<void> {
+  const target = projectFiles.length === 1 ? projectFiles[0] : solutionFile;
+  ensureSuccess(await run(path.dirname(target), ['restore', target]));
+}
+
+const missingAssets = (r: RunResult) => r.code !== 0 && /assets file/i.test(r.stdout + r.stderr);
 
 export async function loadProject(projectFile: string): Promise<LoadResult> {
-  let r = await list(projectFile, '--include-transitive');
-  if (r.code !== 0 && /assets file/i.test(r.stdout + r.stderr)) {
-    // Never restored: `dotnet list package` has no assets file to read.
+  const load = () =>
+    Promise.all([
+      list(projectFile, '--include-transitive'),
+      list(projectFile, '--outdated'),
+      list(projectFile, '--vulnerable', '--include-transitive'),
+    ]);
+  let [installed, outdated, vulnerable] = await load();
+  if (missingAssets(installed)) {
+    // Never restored (or the restore of the solution failed): `dotnet list package` has no assets file to read.
     ensureSuccess(await inProject(projectFile, ['restore', projectFile]));
-    r = await list(projectFile, '--include-transitive');
+    [installed, outdated, vulnerable] = await load();
   }
-  ensureSuccess(r);
-  const data = parseList(r.stdout);
-
-  const [outdated, vulnerable] = await Promise.all([
-    list(projectFile, '--outdated'),
-    list(projectFile, '--vulnerable', '--include-transitive'),
-  ]);
+  ensureSuccess(installed);
+  const data = parseList(installed.stdout);
   const warnings: LoadResult['warnings'] = [];
   if (outdated.code === 0 && outdated.stdout) applyOutdated(data, outdated.stdout);
   else warnings.push('outdated');

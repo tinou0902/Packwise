@@ -1,7 +1,7 @@
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import type { Ecosystem, PackageFeed, Source } from '../../ecosystem.ts';
-import { addPackage, listSources, loadLatestPrerelease, loadProject, removePackage } from './dotnet.ts';
+import { addPackage, listSources, loadLatestPrerelease, loadProject, removePackage, restore } from './dotnet.ts';
 import { FeedClient, NUGET_ORG } from './feed.ts';
 import { nugetRules } from './rules.ts';
 import { parseSolution } from './solution.ts';
@@ -33,6 +33,7 @@ export const nuget: Ecosystem = {
     return files.filter((_, i) => found[i]);
   },
 
+  prepare: restore,
   load: loadProject,
   loadLatestPrerelease,
   add: (file, id, version) => addPackage(file, id, version),

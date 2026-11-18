@@ -189,8 +189,9 @@ export class ManagerPanel {
     await this.loadProjects(this.projects);
   }
 
-  private loadProjects(uris: vscode.Uri[]): Promise<void> {
-    return forEachLimited(uris, LOAD_CONCURRENCY, uri => this.loadProject(uri));
+  private async loadProjects(uris: vscode.Uri[]): Promise<void> {
+    await this.roots.prepare(this.ecosystem, this.root, uris);
+    await forEachLimited(uris, LOAD_CONCURRENCY, uri => this.loadProject(uri));
   }
 
   private projectName(uri: string): string {
@@ -218,15 +219,17 @@ export class ManagerPanel {
 
   private async loadProject(uri: vscode.Uri): Promise<void> {
     try {
-      const { data, warnings } = await this.roots.load(this.ecosystem, uri);
-      let pre = new Map<string, string>();
       const preWarnings: string[] = [];
-      if (this.prerelease) {
-        pre = await this.prereleaseLatest.get(uri.toString(), () => this.ecosystem.loadLatestPrerelease(uri.fsPath)).catch(() => {
-          preWarnings.push(vscode.l10n.t('latest prereleases'));
-          return new Map<string, string>();
-        });
-      }
+      // Both run at once: the prerelease lookup is another CLI call.
+      const [{ data, warnings }, pre] = await Promise.all([
+        this.roots.load(this.ecosystem, uri),
+        this.prerelease
+          ? this.prereleaseLatest.get(uri.toString(), () => this.ecosystem.loadLatestPrerelease(uri.fsPath)).catch(() => {
+              preWarnings.push(vscode.l10n.t('latest prereleases'));
+              return new Map<string, string>();
+            })
+          : new Map<string, string>(),
+      ]);
       this.setState(uri, {
         loading: false,
         error: '',
