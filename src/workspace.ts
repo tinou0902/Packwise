@@ -2,7 +2,9 @@ import * as vscode from 'vscode';
 import { PromiseCache } from './cache.ts';
 import type { Ecosystem, EcosystemId, LoadResult } from './ecosystem.ts';
 import { globToRegExp } from './glob.ts';
+import { errorMessage } from './errors.ts';
 import { withoutGitIgnored } from './ignored.ts';
+import { log } from './log.ts';
 
 /** A root file of the workspace (solution, package.json…) and the ecosystem managing it. */
 export interface Root {
@@ -115,6 +117,13 @@ export class Roots implements vscode.Disposable {
   /** Project files of a root that exist on disk. */
   async projectsOf(root: Root): Promise<vscode.Uri[]> {
     return (await root.ecosystem.projectsOf(root.uri.fsPath)).map(f => vscode.Uri.file(f));
+  }
+
+  /** Runs the ecosystem's preparation for the projects of a root that are not loaded yet. */
+  async prepare(ecosystem: Ecosystem, root: vscode.Uri, files: readonly vscode.Uri[]): Promise<void> {
+    const todo = files.filter(f => !this.cache.has(f.toString()));
+    if (!ecosystem.prepare || todo.length === 0) return;
+    await ecosystem.prepare(root.fsPath, todo.map(f => f.fsPath)).catch(e => log(`Preparation failed: ${errorMessage(e)}`));
   }
 
   /** Packages of a project. */

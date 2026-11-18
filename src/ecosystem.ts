@@ -148,6 +148,11 @@ export interface Ecosystem extends PackageRules {
   /** Project files of a root that exist on disk, as absolute paths in root order. */
   projectsOf(rootFile: string): Promise<string[]>;
 
+  /**
+   * Optional step run once before loading projects of a root, so that each load can skip it (NuGet restores them
+   * all with one `dotnet restore`). A failure is not fatal: the loads then report their own errors.
+   */
+  prepare?(rootFile: string, projectFiles: string[]): Promise<void>;
   /** Packages of a project. */
   load(projectFile: string): Promise<LoadResult>;
   /** Latest version of each direct package including prereleases (normalized id → version). */

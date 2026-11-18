@@ -5,6 +5,9 @@
 - Faster panel on large projects: rows look their package up in an index instead of scanning every package, and
   bursts of messages (one package summary per visible row) are rendered once per frame. Spinners no longer restart
   (and stutter) on every render.
+- NuGet: about 3× faster loading on solutions with many projects. The solution is restored once, then each project
+  is listed without its own implicit restore, and its three `dotnet list package` calls (installed, outdated,
+  vulnerable) run at once; the prerelease lookup runs alongside them too.
 - npm: `npm ls` now runs alongside `npm outdated` and `npm audit` instead of before them.
 - Files ignored by git are no longer listed as roots: build outputs such as `.next/` no longer add copies of
   `package.json`.

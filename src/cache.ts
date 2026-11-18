@@ -14,6 +14,10 @@ export class PromiseCache<K, V> {
     return p;
   }
 
+  has(key: K): boolean {
+    return this.entries.has(key);
+  }
+
   delete(key: K): void {
     this.entries.delete(key);
   }
