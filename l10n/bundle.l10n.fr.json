@@ -32,6 +32,7 @@
   "multiple": "plusieurs",
   "No dependencies": "Aucune dépendance",
   "No packages found": "Aucun package trouvé",
+  "Type a package name to search.": "Tapez un nom de package pour rechercher.",
   "No project with packages found in the workspace.": "Aucun projet avec des packages dans l’espace de travail.",
   "not installed": "non installé",
   "Owner(s)": "Propriétaire(s)",

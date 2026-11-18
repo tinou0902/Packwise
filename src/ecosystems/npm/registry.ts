@@ -167,6 +167,8 @@ export class RegistryClient implements PackageFeed {
   }
 
   async search(query: string, skip: number, take: number): Promise<{ hits: SearchHit[]; total: number }> {
+    // The search API rejects an empty text (400) and has no listing of popular packages, unlike NuGet.
+    if (!query.trim()) return { hits: [], total: 0 };
     const params = new URLSearchParams({ text: query, from: String(skip), size: String(take) });
     return parseSearch(await getJson<RawSearch>(`${this.source.url}-/v1/search?${params}`), this.source.name);
   }

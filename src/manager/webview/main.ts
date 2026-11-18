@@ -328,7 +328,8 @@ function renderList(): void {
     else {
       const empty = state.tab === 'updates' && !state.query ? t('All packages are up to date.')
         : state.tab === 'consolidate' && !state.query ? t('Packages installed in several versions are shown here.')
-          : t('No packages found');
+          : state.tab === 'browse' && !state.query.trim() ? t('Type a package name to search.')
+            : t('No packages found');
       children.push(h('div', { class: 'message empty' }, empty));
     }
   }
