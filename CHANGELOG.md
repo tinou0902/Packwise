@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.5.1
 
 - Faster panel on large projects: rows look their package up in an index instead of scanning every package, and
   bursts of messages (one package summary per visible row) are rendered once per frame. Spinners no longer restart
