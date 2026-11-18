@@ -68,7 +68,8 @@ are the extras, environment marker and operator (`==`, `>=`, `~=`) of the requir
 A new reference goes to `[project].dependencies`, or to the `dev` group with the **Development dependency** option.
 
 The panel reloads when a project file or the solution changes, so edits made outside the extension show up too.
-A project that was never restored is restored automatically.
+NuGet projects are restored when the panel loads them (the whole solution in one `dotnet restore`, or the edited
+project alone), so the lists always match the project files, including projects that were never restored.
 
 ## Limitations
 
@@ -85,8 +86,10 @@ A project that was never restored is restored automatically.
 
 ## Development
 
-Each ecosystem implements the `Ecosystem` interface (`src/ecosystem.ts`) in `src/ecosystems/<id>/`. NuGet: installed
-and outdated packages come from the `dotnet list package` CLI; search, version history and metadata from the NuGet v3
+Each ecosystem implements the `Ecosystem` interface (`src/ecosystem.ts`) in `src/ecosystems/<id>/`; its optional
+`prepare` step runs once before the panel loads the projects of a root. NuGet: `prepare` restores the solution, then
+installed, outdated and vulnerable packages come from three concurrent `dotnet list package --no-restore` calls per
+project; search, version history and metadata from the NuGet v3
 API of the configured package sources. npm: installed, outdated and vulnerable packages come from `npm ls`,
 `npm outdated` and `npm audit`; search, version history and metadata from the registry API. PyPI: installed packages
 come from `pyproject.toml` and `uv.lock`, versions from the PyPI simple and JSON APIs, vulnerabilities from OSV.dev;
