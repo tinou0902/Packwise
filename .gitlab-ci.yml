@@ -79,3 +79,27 @@ release:
         - name: packwise-${VERSION}.vsix
           url: ${PACKAGE_REGISTRY_URL}/${VERSION}/packwise-${VERSION}.vsix
           link_type: package
+
+# Same release on the public GitHub mirror (the push mirror copies tags, not releases). Needs a GITHUB_TOKEN CI/CD
+# variable: fine-grained token on tinou0902/packwise with "Contents: read and write".
+# Backfill: run a pipeline on main with GITHUB_RELEASE_TAG=vX.Y.Z (the .vsix comes from the package registry).
+github-release:
+  stage: release
+  rules:
+    - if: $GITHUB_TOKEN == null || $GITHUB_TOKEN == ""
+      when: never
+    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/
+      variables: { RELEASE_TAG: $CI_COMMIT_TAG }
+      needs: [package, release]
+    - if: $CI_PIPELINE_SOURCE == "web" && $GITHUB_RELEASE_TAG =~ /^v\d+\.\d+\.\d+$/
+      variables: { RELEASE_TAG: $GITHUB_RELEASE_TAG }
+      needs: []
+  cache: []
+  before_script: []
+  script:
+    - VSIX="packwise-${RELEASE_TAG#v}.vsix"
+    - |
+      if [ ! -f "$VSIX" ]; then
+        wget -q --header "JOB-TOKEN: $CI_JOB_TOKEN" -O "$VSIX" "$PACKAGE_REGISTRY_URL/${RELEASE_TAG#v}/$VSIX"
+      fi
+    - node scripts/github-release.mjs "$RELEASE_TAG" "$VSIX"
