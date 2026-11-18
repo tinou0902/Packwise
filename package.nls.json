@@ -1,5 +1,5 @@
 {
-  "description": "Manage the NuGet packages of your .NET solutions in a Visual Studio-like package manager: browse, install, update, consolidate, vulnerable and deprecated packages.",
+  "description": "Manage the NuGet packages of your .NET solutions and the npm packages of your projects in a Visual Studio-like package manager: browse, install, update, consolidate, vulnerable and deprecated packages.",
   "viewContainer.packwise": "Packwise",
   "command.refresh": "Refresh",
   "view.roots": "Projects",
