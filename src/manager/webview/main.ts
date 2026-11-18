@@ -762,6 +762,8 @@ window.addEventListener('message', (event: MessageEvent<ToWebview>) => {
   switch (m.type) {
     case 'init':
       rules = RULES[m.ecosystem];
+      // Selects the placeholder package icon of the ecosystem (manager.css).
+      document.body.dataset.ecosystem = m.ecosystem;
       state.title = m.title;
       state.hasDevDependencies = m.hasDevDependencies;
       state.strings = m.strings;

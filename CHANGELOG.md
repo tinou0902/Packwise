@@ -6,6 +6,7 @@
   `package.json`.
 - npm: the Browse tab no longer fails with "400 Bad Request" when the search is empty; it asks for a package name
   instead, as the npm registry has no listing of popular packages.
+- npm and PyPI packages get their own placeholder icon instead of the NuGet one.
 
 ## 0.5.0
 
