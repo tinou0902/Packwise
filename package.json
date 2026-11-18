@@ -1,8 +1,8 @@
 {
   "name": "packwise",
-  "displayName": "Packwise — NuGet Package Manager",
+  "displayName": "Packwise — Package Manager for NuGet and npm",
   "description": "%description%",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "publisher": "tinou0902",
   "private": true,
   "type": "module",
@@ -32,7 +32,11 @@
     "packages",
     "csproj",
     "sln",
-    "slnx"
+    "slnx",
+    "npm",
+    "package.json",
+    "workspaces",
+    "dependencies"
   ],
   "activationEvents": [
     "workspaceContains:**/*.{sln,slnx}",
