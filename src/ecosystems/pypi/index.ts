@@ -21,7 +21,6 @@ export const pypi: Ecosystem = {
   label: 'PyPI',
   rootGlob: '**/pyproject.toml',
   excludeGlob: '**/{.venv,venv,node_modules,site-packages,__pycache__,.tox,.nox,build,dist}/**',
-  rootLabel: "Project '{0}'",
   projectGlob: '**/pyproject.toml',
   defaultSources: [PYPI],
   hasDevDependencies: true,

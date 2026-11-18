@@ -12,6 +12,8 @@ export const WEBVIEW_STRINGS = [
   'Include prerelease',
   'Vulnerable only',
   'No vulnerable packages found.',
+  'Vulnerable: {0}',
+  '{0} vulnerable packages',
   'Package source:',
   'All',
   'Select all packages',

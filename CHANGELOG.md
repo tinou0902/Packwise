@@ -6,10 +6,17 @@
   `package.json`.
 - npm: the Browse tab no longer fails with "400 Bad Request" when the search is empty; it asks for a package name
   instead, as the npm registry has no listing of popular packages.
-- npm and PyPI packages get their own placeholder icon instead of the NuGet one.
-- **Vulnerable only** box next to **Include prerelease**: every tab lists only the packages with a known
-  vulnerability (an installed version, direct or transitive, or the search result). Transitive packages now show the
-  vulnerability flag too.
+- **Vulnerable only** filter: every tab lists only the packages with a known vulnerability (an installed version,
+  direct or transitive, or the search result). Transitive packages now show the vulnerability flag too.
+- The panel looks more like VS Code itself:
+  - Codicons instead of hand-drawn icons, and check boxes drawn with the theme's checkbox colours.
+  - Tabs styled like the panel's (Problems, Output…), with counters: installed packages, and vulnerable ones in red.
+  - **Include prerelease** and **Vulnerable only** are toggles inside the search box, like the find widget's options.
+  - The "Package Manager" heading is gone (the editor tab already names the root), and so is the source picker when
+    there is a single source.
+  - npm and PyPI rows are compact, without the placeholder icon column (their registries have no package icons).
+  - The vulnerability flag is coloured by the worst severity (critical, high, moderate, low), with the severities in
+    its tooltip.
 
 ## 0.5.0
 

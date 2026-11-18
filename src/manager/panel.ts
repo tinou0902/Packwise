@@ -92,11 +92,6 @@ export class ManagerPanel {
       type: 'init',
       ecosystem: this.ecosystem.id,
       hasDevDependencies: this.ecosystem.hasDevDependencies,
-      title: vscode.l10n.t(
-        '{0} Package Manager: {1}',
-        this.ecosystem.label,
-        vscode.l10n.t(this.ecosystem.rootLabel, this.ecosystem.rootName(this.root.fsPath)),
-      ),
       sources: this.sourceList(),
       strings: Object.fromEntries(WEBVIEW_STRINGS.map(k => [k, vscode.l10n.t(k)])),
     };

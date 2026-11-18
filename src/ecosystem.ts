@@ -132,8 +132,6 @@ export interface Ecosystem extends PackageRules {
   readonly rootGlob: string;
   /** Folders skipped when looking for roots. */
   readonly excludeGlob: string;
-  /** English label of a root, "{0}" being its name (`"Solution '{0}'"`); translated by the host. */
-  readonly rootLabel: string;
   /** Project files to watch for changes. */
   readonly projectGlob: string;
   /** Sources used when none is configured. */
