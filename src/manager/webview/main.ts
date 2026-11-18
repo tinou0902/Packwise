@@ -30,6 +30,7 @@ import {
   installedVersion,
   installsOf as installsIn,
   isVulnerable,
+  resolvedVersions,
   maxVersion as maxIn,
   galleryName,
   installedAdvisories,
@@ -164,6 +165,16 @@ function packageIcon(url: string | undefined, large = false): HTMLElement | null
   return box;
 }
 
+/** Spinner in phase with a shared clock: re-rendering it (on every render) does not restart its rotation. */
+function spinner(): HTMLElement {
+  const el = h('span', { class: 'spinner' });
+  el.style.animationDelay = `-${Math.round(performance.now() % SPIN_MS)}ms`;
+  return el;
+}
+
+/** Rotation period of `.spinner` (manager.css). */
+const SPIN_MS = 800;
+
 function link(text: string, url: string): HTMLElement {
   return h('a', { href: '#', title: url, onclick: (e: Event) => { e.preventDefault(); send({ type: 'openUrl', url }); } }, text);
 }
@@ -226,7 +237,16 @@ renderToggles();
 
 // ---------- Rendering ----------
 
+let renderFrame = 0;
+
+/** Renders once at the next frame: bursts of messages (one summary per visible row) cost a single render. */
+function scheduleRender(): void {
+  if (!renderFrame) renderFrame = requestAnimationFrame(render);
+}
+
 function render(): void {
+  cancelAnimationFrame(renderFrame);
+  renderFrame = 0;
   renderTabs();
   renderList();
   renderDetails();
@@ -280,7 +300,7 @@ function renderTabs(): void {
         tab === 'installed' && installed.rows.length > 0 && h('span', { class: 'count' }, String(installed.rows.length)),
         count > 0 && h('span', { class: 'badge' }, String(count)),
         tab === 'installed' && vulnerable > 0 && h('span', { class: 'badge error', title: t('{0} vulnerable packages', vulnerable) }, String(vulnerable)),
-        tab !== 'browse' && loading && h('span', { class: 'spinner' }));
+        tab !== 'browse' && loading && spinner());
     }),
   );
 }
@@ -361,9 +381,9 @@ function renderList(): void {
   }
 
   const loadingProjects = state.tab !== 'browse' && state.projects.some(p => p.loading);
-  if (state.tab === 'browse' && state.browse.loading) children.push(h('div', { class: 'message' }, h('span', { class: 'spinner' }), t('Loading…')));
+  if (state.tab === 'browse' && state.browse.loading) children.push(h('div', { class: 'message' }, spinner(), t('Loading…')));
   else if (rows.length === 0 && transitive.length === 0) {
-    if (loadingProjects) children.push(h('div', { class: 'message' }, h('span', { class: 'spinner' }), t('Loading…')));
+    if (loadingProjects) children.push(h('div', { class: 'message' }, spinner(), t('Loading…')));
     else {
       const empty = state.vulnerableOnly ? t('No vulnerable packages found.')
         : state.tab === 'updates' && !state.query ? t('All packages are up to date.')
@@ -374,7 +394,7 @@ function renderList(): void {
     }
   }
   if (state.tab === 'browse' && state.browse.hasMore && !state.browse.loading) {
-    const more = h('div', { class: 'message more' }, h('span', { class: 'spinner' }), t('Load more'));
+    const more = h('div', { class: 'message more' }, spinner(), t('Load more'));
     children.push(more);
     new IntersectionObserver((entries, obs) => {
       if (entries.some(e => e.isIntersecting)) {
@@ -415,7 +435,7 @@ function renderRow(row: Row): HTMLElement {
   } else if (state.tab === 'consolidate') {
     right.push(h('div', { class: 'ver' }, [...versions].sort(rules.compareVersions).join(', ')));
   } else if (row.transitive) {
-    const res = maxVersion(state.projects.flatMap(p => p.packages.filter(x => idKey(x.id) === row.key).map(x => x.resolved)));
+    const res = maxVersion(resolvedVersions(state.projects, row.key, rules));
     right.push(h('div', { class: 'ver dim' }, res));
   } else {
     right.push(h('div', { class: 'ver' }, versions.size > 1 ? t('multiple') : [...versions][0]));
@@ -629,7 +649,7 @@ function renderDetails(): void {
   if (summary?.error) children.push(h('div', { class: 'banner warning' }, icon('warning'), t('Package details unavailable: {0}', summary.error)));
   const meta = details ?? (summary?.loading ? undefined : latestDetails);
   const description = meta?.description || hit?.description || '';
-  if (summary?.loading && !hit) children.push(h('div', { class: 'message' }, h('span', { class: 'spinner' }), t('Loading…')));
+  if (summary?.loading && !hit) children.push(h('div', { class: 'message' }, spinner(), t('Loading…')));
   if (description || meta) {
     const fields: [StringKey, Child][] = [
       ['Version', meta?.version ?? selected],
@@ -831,7 +851,7 @@ window.addEventListener('message', (event: MessageEvent<ToWebview>) => {
       return;
     case 'projects':
       state.projects = m.projects;
-      render();
+      scheduleRender();
       return;
     case 'searchResults':
       if (m.seq !== state.browse.seq) return;
@@ -848,7 +868,7 @@ window.addEventListener('message', (event: MessageEvent<ToWebview>) => {
       // Answer to a request made before the prerelease box or the source changed.
       if (m.prerelease !== state.prerelease || m.source !== state.source) return;
       state.summaries.set(idKey(m.id), { loading: false, hit: m.hit, versions: m.versions, error: m.error });
-      render();
+      scheduleRender();
       return;
     case 'busy':
       state.busy = m.text;

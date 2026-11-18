@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Faster panel on large projects: rows look their package up in an index instead of scanning every package, and
+  bursts of messages (one package summary per visible row) are rendered once per frame. Spinners no longer restart
+  (and stutter) on every render.
+- npm: `npm ls` now runs alongside `npm outdated` and `npm audit` instead of before them.
 - Files ignored by git are no longer listed as roots: build outputs such as `.next/` no longer add copies of
   `package.json`.
 - npm: the Browse tab no longer fails with "400 Bad Request" when the search is empty; it asks for a package name
