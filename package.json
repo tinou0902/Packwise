@@ -2,7 +2,7 @@
   "name": "packwise",
   "displayName": "Packwise — Package Manager for NuGet, npm and PyPI",
   "description": "%description%",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "publisher": "tinou0902",
   "private": true,
   "type": "module",

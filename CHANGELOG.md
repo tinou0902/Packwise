@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.2
+
+- Screenshots of the extension page updated for the new look.
+
 ## 0.5.1
 
 - Faster panel on large projects: rows look their package up in an index instead of scanning every package, and
