@@ -10,6 +10,8 @@ export const WEBVIEW_STRINGS = [
   'Search (Ctrl+L)',
   'Refresh',
   'Include prerelease',
+  'Vulnerable only',
+  'No vulnerable packages found.',
   'Package source:',
   'All',
   'Select all packages',

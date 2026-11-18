@@ -29,6 +29,8 @@ export interface ListInput {
   /** Filter of the other tabs. */
   query: string;
   prerelease: boolean;
+  /** Keep only the packages with a known vulnerability. */
+  vulnerableOnly: boolean;
   rules: PackageRules;
 }
 
@@ -84,8 +86,26 @@ function directPackages(projects: readonly ProjectState[], rules: PackageRules):
 
 const sortById = (a: Row, b: Row) => a.id.localeCompare(b.id);
 
+/**
+ * A row's package has a known vulnerability: an installed version of it (direct or transitive) in the projects, or,
+ * for a search result, its latest version.
+ */
+export function isVulnerable(row: Row, projects: readonly ProjectState[], rules: PackageRules): boolean {
+  if (row.hit?.vulnerable) return true;
+  return projects.some(project =>
+    project.packages.some(p => p.vulnerabilities.length > 0 && rules.normalizeId(p.id) === row.key),
+  );
+}
+
 /** Rows of a tab; `transitive` is only filled for the Installed tab. */
 export function rowsFor(tab: Tab, input: ListInput): { rows: Row[]; transitive: Row[] } {
+  const lists = unfilteredRows(tab, input);
+  if (!input.vulnerableOnly) return lists;
+  const keep = (r: Row) => isVulnerable(r, input.projects, input.rules);
+  return { rows: lists.rows.filter(keep), transitive: lists.transitive.filter(keep) };
+}
+
+function unfilteredRows(tab: Tab, input: ListInput): { rows: Row[]; transitive: Row[] } {
   const { projects, query, rules } = input;
   const matches = (r: { id: string }) => matchesQuery(r.id, query);
   switch (tab) {

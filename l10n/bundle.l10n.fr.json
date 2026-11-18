@@ -32,6 +32,8 @@
   "multiple": "plusieurs",
   "No dependencies": "Aucune dépendance",
   "No packages found": "Aucun package trouvé",
+  "No vulnerable packages found.": "Aucun package vulnérable trouvé.",
+  "Vulnerable only": "Vulnérables uniquement",
   "Type a package name to search.": "Tapez un nom de package pour rechercher.",
   "No project with packages found in the workspace.": "Aucun projet avec des packages dans l’espace de travail.",
   "not installed": "non installé",
