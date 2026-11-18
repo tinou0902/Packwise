@@ -19,6 +19,7 @@ import {
   formatDownloads,
   installedVersion,
   installsOf as installsIn,
+  isVulnerable,
   maxVersion as maxIn,
   galleryName,
   rowsFor as rowsIn,
@@ -38,6 +39,7 @@ interface Persisted {
   listWidth?: number;
   source?: string;
   prerelease?: boolean;
+  vulnerableOnly?: boolean;
 }
 
 const vscode = acquireVsCodeApi();
@@ -65,6 +67,7 @@ const state = {
   tab: 'browse' as Tab,
   query: '',
   prerelease: persisted.prerelease ?? false,
+  vulnerableOnly: persisted.vulnerableOnly ?? false,
   projects: [] as ProjectState[],
   browse: { seq: 0, hits: [] as SearchHit[], hasMore: false, loading: false, errors: [] as string[] },
   summaries: new Map<string, Summary>(),
@@ -154,7 +157,7 @@ const installsOf = (key: string) => installsIn(state.projects, key, rules);
 const updateTarget = (p: InstalledPackage) => targetOf(p, state.prerelease, rules);
 const maxVersion = (versions: readonly (string | undefined)[]) => maxIn(versions, rules);
 const rowsFor = (tab: Tab) =>
-  rowsIn(tab, { projects: state.projects, hits: state.browse.hits, query: state.query, prerelease: state.prerelease, rules });
+  rowsIn(tab, { projects: state.projects, hits: state.browse.hits, query: state.query, prerelease: state.prerelease, vulnerableOnly: state.vulnerableOnly, rules });
 
 function summaryOf(key: string): Summary | undefined {
   return state.summaries.get(key);
@@ -182,6 +185,8 @@ const prereleaseBox = h('input', { type: 'checkbox', id: 'prerelease' });
 const sourceSelect = h('select', { class: 'source' });
 const sourceLabel = h('label', { for: 'source' });
 const prereleaseLabel = h('label', { for: 'prerelease' });
+const vulnerableBox = h('input', { type: 'checkbox', id: 'vulnerable-only' });
+const vulnerableLabel = h('label', { for: 'vulnerable-only' });
 const updateBar = h('div', { class: 'update-bar' });
 const listPane = h('div', { class: 'list', tabindex: '0', role: 'listbox' });
 const splitter = h('div', { class: 'splitter' });
@@ -193,7 +198,8 @@ sourceSelect.id = 'source';
 app.append(
   h('div', { class: 'header' }, tabsBar, heading),
   h('div', { class: 'toolbar' },
-    h('div', { class: 'toolbar-left' }, search, refreshButton, h('span', { class: 'prerelease' }, prereleaseBox, prereleaseLabel)),
+    h('div', { class: 'toolbar-left' }, search, refreshButton, h('span', { class: 'prerelease' }, prereleaseBox, prereleaseLabel),
+      h('span', { class: 'prerelease' }, vulnerableBox, vulnerableLabel)),
     h('div', { class: 'toolbar-right' }, sourceLabel, sourceSelect),
   ),
   h('div', { class: 'main' }, h('div', { class: 'left' }, updateBar, listPane), splitter, detailPane),
@@ -202,6 +208,7 @@ app.append(
 
 if (persisted.listWidth) app.style.setProperty('--list-width', `${persisted.listWidth}px`);
 prereleaseBox.checked = state.prerelease;
+vulnerableBox.checked = state.vulnerableOnly;
 
 // ---------- Rendering ----------
 
@@ -218,6 +225,7 @@ function renderStatic(): void {
   search.placeholder = t('Search (Ctrl+L)');
   refreshButton.title = t('Refresh');
   prereleaseLabel.textContent = t('Include prerelease');
+  vulnerableLabel.textContent = t('Vulnerable only');
   sourceLabel.textContent = t('Package source:');
   heading.textContent = state.title;
   renderSources();
@@ -326,7 +334,8 @@ function renderList(): void {
   else if (rows.length === 0 && transitive.length === 0) {
     if (loadingProjects) children.push(h('div', { class: 'message' }, h('span', { class: 'spinner' }), t('Loading…')));
     else {
-      const empty = state.tab === 'updates' && !state.query ? t('All packages are up to date.')
+      const empty = state.vulnerableOnly ? t('No vulnerable packages found.')
+        : state.tab === 'updates' && !state.query ? t('All packages are up to date.')
         : state.tab === 'consolidate' && !state.query ? t('Packages installed in several versions are shown here.')
           : state.tab === 'browse' && !state.query.trim() ? t('Type a package name to search.')
             : t('No packages found');
@@ -355,7 +364,8 @@ function renderRow(row: Row): HTMLElement {
   const summary = summaryOf(row.key);
   const installed = maxVersion(row.installs.map(i => i.pkg.resolved));
   const versions = new Set(row.installs.map(i => installedVersion(i.pkg)));
-  const vulnerable = row.installs.some(i => i.pkg.vulnerabilities.length > 0) || (state.tab === 'browse' && hit?.vulnerable);
+  // Same rule as the "Vulnerable only" filter.
+  const vulnerable = isVulnerable(row, state.projects, rules);
   const deprecated = hit?.deprecated || (summary?.versions?.find(v => installed && lower(v.version) === lower(installed))?.deprecation !== undefined);
   const update = maxVersion(row.installs.map(i => updateTarget(i.pkg)));
   const latest = hit?.version;
@@ -690,6 +700,12 @@ prereleaseBox.addEventListener('change', () => {
   doSearch();
 });
 
+vulnerableBox.addEventListener('change', () => {
+  state.vulnerableOnly = vulnerableBox.checked;
+  persist();
+  renderList();
+});
+
 sourceSelect.addEventListener('change', () => {
   state.source = sourceSelect.value;
   persist();
@@ -704,7 +720,7 @@ function refetchSelected(): void {
 }
 
 function persist(): void {
-  vscode.setState({ ...vscode.getState(), source: state.source, prerelease: state.prerelease });
+  vscode.setState({ ...vscode.getState(), source: state.source, prerelease: state.prerelease, vulnerableOnly: state.vulnerableOnly });
 }
 
 // ---------- Keyboard and splitter ----------

@@ -6,6 +6,7 @@ import {
   formatDownloads,
   matchesQuery,
   galleryName,
+  isVulnerable,
   rowsFor,
   updateTarget,
   versionChoices,
@@ -34,7 +35,7 @@ const projects = [
   ]),
 ];
 
-const input = (extra: Partial<ListInput> = {}): ListInput => ({ projects, hits: [], query: '', prerelease: false, rules, ...extra });
+const input = (extra: Partial<ListInput> = {}): ListInput => ({ projects, hits: [], query: '', prerelease: false, vulnerableOnly: false, rules, ...extra });
 
 test('installed tab: direct packages merged across projects, transitive ones apart', () => {
   const { rows, transitive } = rowsFor('installed', input());
@@ -103,4 +104,30 @@ test('formatDownloads and galleryName', () => {
   assert.equal(galleryName('https://www.nuget.org/packages/Serilog/4.0.0'), 'nuget.org');
   assert.equal(galleryName('https://npmjs.com/package/react'), 'npmjs.com');
   assert.equal(galleryName('not a url'), 'not a url');
+});
+
+test('the vulnerable-only filter keeps packages with a vulnerable installed version or search result', () => {
+  const advisory = { severity: 'High', advisoryUrl: 'https://example.test/advisory' };
+  const vulnerableProjects = [
+    project('App', [
+      pkg('Serilog', '3.0.0', { vulnerabilities: [advisory] }),
+      pkg('Dapper', '2.1.0'),
+      pkg('System.Text.Json', '8.0.0', { requested: '', isDirect: false, vulnerabilities: [advisory] }),
+      pkg('Newtonsoft.Json', '13.0.3', { requested: '', isDirect: false }),
+    ]),
+    // Vulnerable as a transitive package of another project: still flagged.
+    project('Tests', [pkg('xunit', '2.9.0'), pkg('Dapper', '2.0.0', { requested: '', isDirect: false, vulnerabilities: [advisory] })]),
+  ];
+  const filtered = rowsFor('installed', input({ projects: vulnerableProjects, vulnerableOnly: true }));
+  assert.deepEqual(filtered.rows.map(r => r.id), ['Dapper', 'Serilog']);
+  assert.deepEqual(filtered.transitive.map(r => r.id), ['System.Text.Json']);
+  assert.equal(rowsFor('installed', input({ projects: vulnerableProjects })).rows.length, 3);
+
+  const hit = (id: string, vulnerable: boolean) => ({
+    id, version: '1.0.0', title: '', description: '', authors: '', owners: '', iconUrl: '', verified: false, vulnerable,
+    deprecated: false, source: 'nuget.org',
+  });
+  const browse = rowsFor('browse', input({ projects: [], hits: [hit('Safe', false), hit('Unsafe', true)], vulnerableOnly: true }));
+  assert.deepEqual(browse.rows.map(r => r.id), ['Unsafe']);
+  assert.equal(isVulnerable({ id: 'xunit', key: 'xunit', installs: [] }, vulnerableProjects, rules), false);
 });

@@ -7,6 +7,9 @@
 - npm: the Browse tab no longer fails with "400 Bad Request" when the search is empty; it asks for a package name
   instead, as the npm registry has no listing of popular packages.
 - npm and PyPI packages get their own placeholder icon instead of the NuGet one.
+- **Vulnerable only** box next to **Include prerelease**: every tab lists only the packages with a known
+  vulnerability (an installed version, direct or transitive, or the search result). Transitive packages now show the
+  vulnerability flag too.
 
 ## 0.5.0
 
