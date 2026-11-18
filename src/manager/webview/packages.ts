@@ -63,11 +63,51 @@ export function matchesQuery(id: string, query: string): boolean {
   return words.every(w => id.toLowerCase().includes(w));
 }
 
+/** What the projects hold for one package (normalized id). */
+interface IndexEntry {
+  /** Top-level references. */
+  installs: Install[];
+  /** Resolved versions, direct or transitive. */
+  resolved: string[];
+  /** Advisories of the installed versions, without duplicates. */
+  advisories: Advisory[];
+}
+
+const EMPTY: IndexEntry = { installs: [], resolved: [], advisories: [] };
+const indexes = new WeakMap<PackageRules, WeakMap<readonly ProjectState[], Map<string, IndexEntry>>>();
+
+/**
+ * Packages of the projects by normalized id, built once per projects list (the webview replaces the list on every
+ * update): rows look their package up instead of scanning every package of every project.
+ */
+function indexOf(projects: readonly ProjectState[], rules: PackageRules): Map<string, IndexEntry> {
+  let byProjects = indexes.get(rules);
+  if (!byProjects) indexes.set(rules, (byProjects = new WeakMap()));
+  let index = byProjects.get(projects);
+  if (index) return index;
+  index = new Map();
+  for (const project of projects) {
+    for (const pkg of project.packages) {
+      const key = rules.normalizeId(pkg.id);
+      let entry = index.get(key);
+      if (!entry) index.set(key, (entry = { installs: [], resolved: [], advisories: [] }));
+      if (pkg.isDirect) entry.installs.push({ project, pkg });
+      if (pkg.resolved) entry.resolved.push(pkg.resolved);
+      for (const a of pkg.vulnerabilities) if (!entry.advisories.some(x => x.advisoryUrl === a.advisoryUrl)) entry.advisories.push(a);
+    }
+  }
+  byProjects.set(projects, index);
+  return index;
+}
+
 /** Top-level references to a package (normalized id) across projects. */
 export function installsOf(projects: readonly ProjectState[], key: string, rules: PackageRules): Install[] {
-  return projects.flatMap(project =>
-    project.packages.filter(p => p.isDirect && rules.normalizeId(p.id) === key).map(pkg => ({ project, pkg })),
-  );
+  return (indexOf(projects, rules).get(key) ?? EMPTY).installs;
+}
+
+/** Resolved versions of a package (normalized id) across projects, direct or transitive. */
+export function resolvedVersions(projects: readonly ProjectState[], key: string, rules: PackageRules): string[] {
+  return (indexOf(projects, rules).get(key) ?? EMPTY).resolved;
 }
 
 /** Direct packages across projects, keyed by normalized id. */
@@ -97,14 +137,7 @@ export function isVulnerable(row: Row, projects: readonly ProjectState[], rules:
 
 /** Advisories of the installed versions of a row's package in the projects, without duplicates. */
 export function installedAdvisories(row: Row, projects: readonly ProjectState[], rules: PackageRules): Advisory[] {
-  const found = new Map<string, Advisory>();
-  for (const project of projects) {
-    for (const p of project.packages) {
-      if (rules.normalizeId(p.id) !== row.key) continue;
-      for (const a of p.vulnerabilities) found.set(a.advisoryUrl, a);
-    }
-  }
-  return [...found.values()];
+  return (indexOf(projects, rules).get(row.key) ?? EMPTY).advisories;
 }
 
 /** Rows of a tab; `transitive` is only filled for the Installed tab. */

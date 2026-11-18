@@ -69,19 +69,19 @@ export async function loadProject(projectFile: string): Promise<LoadResult> {
   const ctx = await contextOf(projectFile);
   if (ctx.packageManager !== 'npm') return loadReadOnly(projectFile, ctx);
 
-  // Exit code 1 for missing or invalid packages: the tree is still printed.
-  const ls = await run(ctx.cwd, ['ls', '--json', '--all', ...ctx.workspaceArgs]);
+  // The three commands run at once: `npm outdated` and `npm audit` query the registry, the slow part of a load.
+  // Exit code 1 for missing or invalid packages (`npm ls`: the tree is still printed), outdated (`npm outdated`) or
+  // vulnerable ones (`npm audit`).
+  const [ls, outdated, audit] = await Promise.all([
+    run(ctx.cwd, ['ls', '--json', '--all', ...ctx.workspaceArgs]),
+    run(ctx.cwd, ['outdated', '--json', ...ctx.workspaceArgs]),
+    run(ctx.cwd, ['audit', '--json', ...ctx.workspaceArgs]),
+  ]);
   if (!parses(ls.stdout)) {
     ensureSuccess(ls);
     throw new Error('Unexpected npm ls output.');
   }
   const data = parseTree(ls.stdout, ctx.manifest, ctx.member);
-
-  // `npm outdated` exits with 1 when something is outdated, `npm audit` when something is vulnerable.
-  const [outdated, audit] = await Promise.all([
-    run(ctx.cwd, ['outdated', '--json', ...ctx.workspaceArgs]),
-    run(ctx.cwd, ['audit', '--json', ...ctx.workspaceArgs]),
-  ]);
   const warnings: LoadResult['warnings'] = [];
   try {
     if (outdated.code > 1) throw new Error();
