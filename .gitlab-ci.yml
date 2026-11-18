@@ -19,6 +19,8 @@ before_script:
 check:
   stage: check
   script:
+    # The discovery tests drive git (check-ignore), absent from the alpine image.
+    - apk add --no-cache git
     - npm run typecheck
     - npm test
 
