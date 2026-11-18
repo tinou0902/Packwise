@@ -143,15 +143,16 @@
     }
   },
   "scripts": {
-    "build": "esbuild src/extension.ts --bundle --outfile=dist/extension.cjs --external:vscode --format=cjs --platform=node --target=node22 --sourcemap && esbuild src/manager/webview/main.ts --bundle --outfile=dist/webview.js --format=iife --platform=browser --target=es2022 --sourcemap",
-    "watch": "esbuild src/extension.ts --bundle --outfile=dist/extension.cjs --external:vscode --format=cjs --platform=node --target=node22 --sourcemap --watch=forever & esbuild src/manager/webview/main.ts --bundle --outfile=dist/webview.js --format=iife --platform=browser --target=es2022 --sourcemap --watch=forever",
+    "build": "esbuild src/extension.ts --bundle --outfile=dist/extension.cjs --external:vscode --format=cjs --platform=node --target=node22 --sourcemap && esbuild src/manager/webview/main.ts --bundle --outfile=dist/webview.js --format=iife --platform=browser --target=es2022 --loader:.svg=text --sourcemap",
+    "watch": "esbuild src/extension.ts --bundle --outfile=dist/extension.cjs --external:vscode --format=cjs --platform=node --target=node22 --sourcemap --watch=forever & esbuild src/manager/webview/main.ts --bundle --outfile=dist/webview.js --format=iife --platform=browser --target=es2022 --loader:.svg=text --sourcemap --watch=forever",
     "typecheck": "tsc -p .",
     "test": "node --test \"test/**/*.test.ts\"",
-    "package": "esbuild src/extension.ts --bundle --outfile=dist/extension.cjs --external:vscode --format=cjs --platform=node --target=node22 --minify && esbuild src/manager/webview/main.ts --bundle --outfile=dist/webview.js --format=iife --platform=browser --target=es2022 --minify && vsce package --no-dependencies"
+    "package": "esbuild src/extension.ts --bundle --outfile=dist/extension.cjs --external:vscode --format=cjs --platform=node --target=node22 --minify && esbuild src/manager/webview/main.ts --bundle --outfile=dist/webview.js --format=iife --platform=browser --target=es2022 --loader:.svg=text --minify && vsce package --no-dependencies"
   },
   "devDependencies": {
     "@types/node": "^24.19.2",
     "@types/vscode": "^1.105.0",
+    "@vscode/codicons": "0.0.46-24",
     "@vscode/vsce": "^4.1.1",
     "esbuild": "^0.28.2",
     "typescript": "^7.0.2"

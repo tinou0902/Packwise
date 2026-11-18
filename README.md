@@ -44,12 +44,14 @@ editor title of an open one, and in the command palette. The `packwise.ecosystem
 | Tab | Content |
 |---|---|
 | **Browse** | Search the package sources (infinite scroll); installed versions and updates are shown on each row |
-| **Installed** | Top-level packages, then transitive ones (collapsed) |
+| **Installed** | Top-level packages, then transitive ones (collapsed); the tab shows their count and, in red, the number of vulnerable packages |
 | **Updates** | Outdated top-level packages, with check boxes and **Update** for several packages at once |
 | **Consolidate** | Packages installed with different versions across the projects |
 
-The toolbar has the search box (`Ctrl+L`), **Refresh**, **Include prerelease** and the **Package source** picker
-(enabled HTTP(S) sources of `dotnet nuget list source`, or all of them). Selecting a package shows its details: the
+The toolbar has the search box (`Ctrl+L`) with two filter toggles, **Include prerelease** (beaker) and **Vulnerable
+only** (shield), then **Refresh** and the **Package source** picker (enabled HTTP(S) sources of
+`dotnet nuget list source`, or all of them; hidden when there is a single source). The vulnerability flag of a row is
+coloured by the worst severity of the installed versions (critical, high, moderate, low). Selecting a package shows its details: the
 projects of the solution and their version, the version picker (latest stable/prerelease, vulnerable, deprecated and
 unlisted versions flagged), **Install**/**Uninstall** for the checked projects, vulnerability and deprecation notices,
 metadata (owners, authors, license, downloads, publication date, URLs, tags) and dependencies per target framework
@@ -103,6 +105,9 @@ Install a build with `code --install-extension packwise-<version>.vsix`. The CI 
 ## License
 
 [MIT](LICENSE)
+
+The webview icons are [Codicons](https://github.com/microsoft/vscode-codicons) by Microsoft, licensed under
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
 
 Packwise is an independent project, not affiliated with or endorsed by Microsoft, the .NET Foundation, GitHub, npm, Inc., the
 Python Software Foundation or Astral.

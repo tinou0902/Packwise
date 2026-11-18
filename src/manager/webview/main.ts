@@ -1,10 +1,20 @@
 /// <reference lib="dom" />
 /* Package manager webview: layout and behaviour of Visual Studio's "Manage NuGet Packages" window, for any ecosystem. */
 
+import arrowUp from '@vscode/codicons/src/icons/arrow-up.svg';
+import beaker from '@vscode/codicons/src/icons/beaker.svg';
+import check from '@vscode/codicons/src/icons/check.svg';
+import chevronRight from '@vscode/codicons/src/icons/chevron-right.svg';
+import linkExternal from '@vscode/codicons/src/icons/link-external.svg';
+import refresh from '@vscode/codicons/src/icons/refresh.svg';
+import shield from '@vscode/codicons/src/icons/shield.svg';
+import verifiedFilled from '@vscode/codicons/src/icons/verified-filled.svg';
+import warning from '@vscode/codicons/src/icons/warning.svg';
 import { worstSeverity } from '../../advisory.ts';
 import { RULES } from '../../ecosystems/rules.ts';
 import {
   ALL_SOURCES,
+  type EcosystemId,
   type PackageRules,
   type InstalledPackage,
   type ProjectState,
@@ -22,6 +32,7 @@ import {
   isVulnerable,
   maxVersion as maxIn,
   galleryName,
+  installedAdvisories,
   rowsFor as rowsIn,
   updateTarget as targetOf,
   versionChoices,
@@ -57,7 +68,7 @@ interface Summary {
 const persisted = vscode.getState() ?? {};
 
 const state = {
-  title: '',
+  ecosystem: 'nuget' as EcosystemId,
   hasDevDependencies: false,
   /** "Development dependency" box of the install actions. */
   dev: false,
@@ -114,30 +125,36 @@ function h<K extends keyof HTMLElementTagNameMap>(tag: K, attrs?: Attrs | null, 
   return el;
 }
 
-const SVG_NS = 'http://www.w3.org/2000/svg';
-const ICONS: Record<string, string> = {
-  refresh: 'M13.5 2v3.5H10M2.5 14v-3.5H6M3.2 6a5 5 0 0 1 9.1-1.2l1.2.7M12.8 10a5 5 0 0 1-9.1 1.2l-1.2-.7',
-  up: 'M8 13V3M3.5 7.5 8 3l4.5 4.5',
-  warning: 'M8 1.8 14.8 14H1.2zM8 6v4M8 11.6v.8',
-  check: 'M3 8.5 6.5 12 13 4.5',
-  verified: 'M8 1l1.8 1.3 2.2-.1.7 2.1 1.8 1.3-.7 2.1.7 2.1-1.8 1.3-.7 2.1-2.2-.1L8 15l-1.8-1.3-2.2.1-.7-2.1-1.8-1.3.7-2.1-.7-2.1 1.8-1.3.7-2.1 2.2.1zM5.5 8.2l1.7 1.7 3.4-3.6',
-  external: 'M9 2.5h4.5V7M13.5 2.5 7 9M11.5 9.5v4h-9v-9h4',
-  chevron: 'M6 4l4 4-4 4',
-  close: 'M4 4l8 8M12 4l-8 8',
+/** Codicons (the icons of VS Code itself), from their SVG sources bundled as text. */
+const ICONS = {
+  beaker,
+  check,
+  chevron: chevronRight,
+  external: linkExternal,
+  refresh,
+  shield,
+  up: arrowUp,
+  verified: verifiedFilled,
+  warning,
 };
+const parsedIcons = new Map<string, SVGSVGElement>();
 
-function icon(name: keyof typeof ICONS, cls = ''): SVGSVGElement {
-  const svg = document.createElementNS(SVG_NS, 'svg');
-  svg.setAttribute('viewBox', '0 0 16 16');
-  svg.setAttribute('class', `icon ${cls}`);
-  svg.setAttribute('aria-hidden', 'true');
-  const path = document.createElementNS(SVG_NS, 'path');
-  path.setAttribute('d', ICONS[name]);
-  svg.append(path);
-  return svg;
+function icon(name: keyof typeof ICONS): SVGSVGElement {
+  let svg = parsedIcons.get(name);
+  if (!svg) {
+    svg = new DOMParser().parseFromString(ICONS[name], 'image/svg+xml').documentElement as unknown as SVGSVGElement;
+    svg.removeAttribute('width');
+    svg.removeAttribute('height');
+    svg.setAttribute('class', 'icon');
+    svg.setAttribute('aria-hidden', 'true');
+    parsedIcons.set(name, svg);
+  }
+  return svg.cloneNode(true) as SVGSVGElement;
 }
 
-function packageIcon(url: string | undefined, large = false): HTMLElement {
+/** Only NuGet packages have icons: npm and PyPI rows stay compact, without an icon column. */
+function packageIcon(url: string | undefined, large = false): HTMLElement | null {
+  if (state.ecosystem !== 'nuget') return null;
   const box = h('span', { class: `pkg-icon${large ? ' large' : ''}` });
   if (url) {
     const img = h('img', { src: url, alt: '', loading: 'lazy' });
@@ -156,8 +173,8 @@ function link(text: string, url: string): HTMLElement {
 const installsOf = (key: string) => installsIn(state.projects, key, rules);
 const updateTarget = (p: InstalledPackage) => targetOf(p, state.prerelease, rules);
 const maxVersion = (versions: readonly (string | undefined)[]) => maxIn(versions, rules);
-const rowsFor = (tab: Tab) =>
-  rowsIn(tab, { projects: state.projects, hits: state.browse.hits, query: state.query, prerelease: state.prerelease, vulnerableOnly: state.vulnerableOnly, rules });
+const rowsFor = (tab: Tab, vulnerableOnly = state.vulnerableOnly) =>
+  rowsIn(tab, { projects: state.projects, hits: state.browse.hits, query: state.query, prerelease: state.prerelease, vulnerableOnly, rules });
 
 function summaryOf(key: string): Summary | undefined {
   return state.summaries.get(key);
@@ -178,15 +195,14 @@ function hitOf(row: Row): SearchHit | undefined {
 
 const app = document.getElementById('app')!;
 const tabsBar = h('div', { class: 'tabs', role: 'tablist' });
-const heading = h('div', { class: 'heading' });
 const search = h('input', { class: 'search', type: 'search', spellcheck: 'false' });
 const refreshButton = h('button', { class: 'icon-button', onclick: () => { state.summaries.clear(); send({ type: 'refresh' }); doSearch(); } }, icon('refresh'));
-const prereleaseBox = h('input', { type: 'checkbox', id: 'prerelease' });
+// Filters as option toggles inside the search box, like the find widget's "Match Case".
+const prereleaseToggle = h('button', { class: 'toggle', onclick: () => setPrerelease(!state.prerelease) }, icon('beaker'));
+const vulnerableToggle = h('button', { class: 'toggle', onclick: () => setVulnerableOnly(!state.vulnerableOnly) }, icon('shield'));
 const sourceSelect = h('select', { class: 'source' });
 const sourceLabel = h('label', { for: 'source' });
-const prereleaseLabel = h('label', { for: 'prerelease' });
-const vulnerableBox = h('input', { type: 'checkbox', id: 'vulnerable-only' });
-const vulnerableLabel = h('label', { for: 'vulnerable-only' });
+const sourcePicker = h('div', { class: 'toolbar-right' }, sourceLabel, sourceSelect);
 const updateBar = h('div', { class: 'update-bar' });
 const listPane = h('div', { class: 'list', tabindex: '0', role: 'listbox' });
 const splitter = h('div', { class: 'splitter' });
@@ -196,19 +212,17 @@ const statusBar = h('div', { class: 'status' });
 sourceSelect.id = 'source';
 
 app.append(
-  h('div', { class: 'header' }, tabsBar, heading),
+  h('div', { class: 'header' }, tabsBar),
   h('div', { class: 'toolbar' },
-    h('div', { class: 'toolbar-left' }, search, refreshButton, h('span', { class: 'prerelease' }, prereleaseBox, prereleaseLabel),
-      h('span', { class: 'prerelease' }, vulnerableBox, vulnerableLabel)),
-    h('div', { class: 'toolbar-right' }, sourceLabel, sourceSelect),
+    h('div', { class: 'toolbar-left' }, h('div', { class: 'search-box' }, search, prereleaseToggle, vulnerableToggle), refreshButton),
+    sourcePicker,
   ),
   h('div', { class: 'main' }, h('div', { class: 'left' }, updateBar, listPane), splitter, detailPane),
   statusBar,
 );
 
 if (persisted.listWidth) app.style.setProperty('--list-width', `${persisted.listWidth}px`);
-prereleaseBox.checked = state.prerelease;
-vulnerableBox.checked = state.vulnerableOnly;
+renderToggles();
 
 // ---------- Rendering ----------
 
@@ -224,11 +238,17 @@ function render(): void {
 function renderStatic(): void {
   search.placeholder = t('Search (Ctrl+L)');
   refreshButton.title = t('Refresh');
-  prereleaseLabel.textContent = t('Include prerelease');
-  vulnerableLabel.textContent = t('Vulnerable only');
+  prereleaseToggle.title = t('Include prerelease');
+  vulnerableToggle.title = t('Vulnerable only');
+  prereleaseToggle.setAttribute('aria-label', prereleaseToggle.title);
+  vulnerableToggle.setAttribute('aria-label', vulnerableToggle.title);
   sourceLabel.textContent = t('Package source:');
-  heading.textContent = state.title;
   renderSources();
+}
+
+function renderToggles(): void {
+  prereleaseToggle.setAttribute('aria-pressed', String(state.prerelease));
+  vulnerableToggle.setAttribute('aria-pressed', String(state.vulnerableOnly));
 }
 
 function renderSources(): void {
@@ -236,20 +256,31 @@ function renderSources(): void {
   options.push(...state.sources.map(s => ({ value: s.name, label: s.name })));
   if (!options.some(o => o.value === state.source)) state.source = options[0]?.value ?? ALL_SOURCES;
   sourceSelect.replaceChildren(...options.map(o => h('option', { value: o.value, selected: o.value === state.source }, o.label)));
+  // A single source leaves nothing to choose.
+  sourcePicker.hidden = state.sources.length <= 1;
 }
 
 function renderTabs(): void {
   const tabs: [Tab, StringKey][] = [['browse', 'Browse'], ['installed', 'Installed'], ['updates', 'Updates'], ['consolidate', 'Consolidate']];
   const loading = state.projects.some(p => p.loading);
+  // Tab counters ignore the "Vulnerable only" filter: the red badge already counts the vulnerable packages.
+  const installed = rowsFor('installed', false);
+  // Vulnerable packages of the Installed tab, transitive ones included (same rule as the "Vulnerable only" filter).
+  const vulnerable = [...installed.rows, ...installed.transitive].filter(r => isVulnerable(r, state.projects, rules)).length;
   tabsBar.replaceChildren(
     ...tabs.map(([tab, label]) => {
-      const count = tab === 'updates' || tab === 'consolidate' ? rowsFor(tab).rows.length : 0;
+      const count = tab === 'updates' || tab === 'consolidate' ? rowsFor(tab, false).rows.length : 0;
       return h('button', {
         class: `tab${state.tab === tab ? ' active' : ''}`,
         role: 'tab',
         'aria-selected': String(state.tab === tab),
         onclick: () => switchTab(tab),
-      }, t(label), count > 0 && h('span', { class: 'badge' }, String(count)), tab !== 'browse' && loading && h('span', { class: 'spinner' }));
+      },
+        t(label),
+        tab === 'installed' && installed.rows.length > 0 && h('span', { class: 'count' }, String(installed.rows.length)),
+        count > 0 && h('span', { class: 'badge' }, String(count)),
+        tab === 'installed' && vulnerable > 0 && h('span', { class: 'badge error', title: t('{0} vulnerable packages', vulnerable) }, String(vulnerable)),
+        tab !== 'browse' && loading && h('span', { class: 'spinner' }));
     }),
   );
 }
@@ -364,8 +395,10 @@ function renderRow(row: Row): HTMLElement {
   const summary = summaryOf(row.key);
   const installed = maxVersion(row.installs.map(i => i.pkg.resolved));
   const versions = new Set(row.installs.map(i => installedVersion(i.pkg)));
-  // Same rule as the "Vulnerable only" filter.
+  // Same rule as the "Vulnerable only" filter; the severity is only known for installed versions.
   const vulnerable = isVulnerable(row, state.projects, rules);
+  const advisories = installedAdvisories(row, state.projects, rules);
+  const severity = worstSeverity(advisories);
   const deprecated = hit?.deprecated || (summary?.versions?.find(v => installed && lower(v.version) === lower(installed))?.deprecation !== undefined);
   const update = maxVersion(row.installs.map(i => updateTarget(i.pkg)));
   const latest = hit?.version;
@@ -423,7 +456,11 @@ function renderRow(row: Row): HTMLElement {
       h('div', { class: 'row-desc' }, hit?.description ?? (summary?.loading ? '' : summary?.error ?? '')),
     ),
     h('div', { class: 'row-right' },
-      (vulnerable || deprecated) && h('span', { class: `flag ${vulnerable ? 'vulnerable' : 'deprecated'}`, title: vulnerable ? t('vulnerable') : t('deprecated') }, icon('warning')),
+      vulnerable && h('span', {
+        class: `flag vulnerable${severity ? ` ${severity.toLowerCase()}` : ''}`,
+        title: severity ? t('Vulnerable: {0}', [...new Set(advisories.map(a => a.severity))].join(', ')) : t('vulnerable'),
+      }, icon('warning')),
+      !vulnerable && deprecated && h('span', { class: 'flag deprecated', title: t('deprecated') }, icon('warning')),
       h('div', { class: 'versions' }, ...right),
     ),
   );
@@ -690,21 +727,23 @@ search.addEventListener('keydown', e => {
   }
 });
 
-prereleaseBox.addEventListener('change', () => {
-  state.prerelease = prereleaseBox.checked;
+function setPrerelease(on: boolean): void {
+  state.prerelease = on;
+  renderToggles();
   persist();
   state.summaries.clear();
   state.selectedVersion = undefined;
   send({ type: 'prerelease', on: state.prerelease });
   refetchSelected();
   doSearch();
-});
+}
 
-vulnerableBox.addEventListener('change', () => {
-  state.vulnerableOnly = vulnerableBox.checked;
+function setVulnerableOnly(on: boolean): void {
+  state.vulnerableOnly = on;
+  renderToggles();
   persist();
   renderList();
-});
+}
 
 sourceSelect.addEventListener('change', () => {
   state.source = sourceSelect.value;
@@ -778,9 +817,7 @@ window.addEventListener('message', (event: MessageEvent<ToWebview>) => {
   switch (m.type) {
     case 'init':
       rules = RULES[m.ecosystem];
-      // Selects the placeholder package icon of the ecosystem (manager.css).
-      document.body.dataset.ecosystem = m.ecosystem;
-      state.title = m.title;
+      state.ecosystem = m.ecosystem;
       state.hasDevDependencies = m.hasDevDependencies;
       state.strings = m.strings;
       state.sources = m.sources;

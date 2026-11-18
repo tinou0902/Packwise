@@ -22,7 +22,6 @@ export const npm: Ecosystem = {
   label: 'npm',
   rootGlob: '**/package.json',
   excludeGlob: '**/{node_modules,bower_components}/**',
-  rootLabel: "Project '{0}'",
   projectGlob: '**/package.json',
   defaultSources: [NPMJS],
   hasDevDependencies: true,

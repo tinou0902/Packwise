@@ -1,5 +1,6 @@
 /* Pure package logic of the webview (no DOM, no global state): what the lists and the version picker show. */
 
+import type { Advisory } from '../../advisory.ts';
 import type { PackageRules } from '../../ecosystem.ts';
 import type { InstalledPackage, ProjectState, SearchHit, Tab, VersionDetails } from '../protocol.ts';
 
@@ -91,10 +92,19 @@ const sortById = (a: Row, b: Row) => a.id.localeCompare(b.id);
  * for a search result, its latest version.
  */
 export function isVulnerable(row: Row, projects: readonly ProjectState[], rules: PackageRules): boolean {
-  if (row.hit?.vulnerable) return true;
-  return projects.some(project =>
-    project.packages.some(p => p.vulnerabilities.length > 0 && rules.normalizeId(p.id) === row.key),
-  );
+  return !!row.hit?.vulnerable || installedAdvisories(row, projects, rules).length > 0;
+}
+
+/** Advisories of the installed versions of a row's package in the projects, without duplicates. */
+export function installedAdvisories(row: Row, projects: readonly ProjectState[], rules: PackageRules): Advisory[] {
+  const found = new Map<string, Advisory>();
+  for (const project of projects) {
+    for (const p of project.packages) {
+      if (rules.normalizeId(p.id) !== row.key) continue;
+      for (const a of p.vulnerabilities) found.set(a.advisoryUrl, a);
+    }
+  }
+  return [...found.values()];
 }
 
 /** Rows of a tab; `transitive` is only filled for the Installed tab. */

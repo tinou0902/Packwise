@@ -34,8 +34,6 @@ export interface InitMessage {
   type: 'init';
   /** Selects the identity and version rules of the webview. */
   ecosystem: EcosystemId;
-  /** Heading of the panel ("NuGet Package Manager: Solution 'App'"). */
-  title: string;
   /** Offers to install new packages as development dependencies. */
   hasDevDependencies: boolean;
   sources: { name: string }[];

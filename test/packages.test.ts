@@ -6,6 +6,7 @@ import {
   formatDownloads,
   matchesQuery,
   galleryName,
+  installedAdvisories,
   isVulnerable,
   rowsFor,
   updateTarget,
@@ -130,4 +131,16 @@ test('the vulnerable-only filter keeps packages with a vulnerable installed vers
   const browse = rowsFor('browse', input({ projects: [], hits: [hit('Safe', false), hit('Unsafe', true)], vulnerableOnly: true }));
   assert.deepEqual(browse.rows.map(r => r.id), ['Unsafe']);
   assert.equal(isVulnerable({ id: 'xunit', key: 'xunit', installs: [] }, vulnerableProjects, rules), false);
+});
+
+test('installed advisories of a row: all projects, without duplicates', () => {
+  const high = { severity: 'High', advisoryUrl: 'https://example.test/high' };
+  const low = { severity: 'Low', advisoryUrl: 'https://example.test/low' };
+  const list = [
+    project('App', [pkg('Serilog', '3.0.0', { vulnerabilities: [high] })]),
+    project('Tests', [pkg('serilog', '3.1.0', { vulnerabilities: [high, low] }), pkg('xunit', '2.9.0')]),
+  ];
+  const row = (id: string) => ({ id, key: rules.normalizeId(id), installs: [] });
+  assert.deepEqual(installedAdvisories(row('Serilog'), list, rules), [high, low]);
+  assert.deepEqual(installedAdvisories(row('xunit'), list, rules), []);
 });
