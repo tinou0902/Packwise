@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Files ignored by git are no longer listed as roots: build outputs such as `.next/` no longer add copies of
+  `package.json`.
+
 ## 0.5.0
 
 - **npm support**: `package.json` projects and npm workspaces get the same package manager as .NET solutions. Installed

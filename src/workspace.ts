@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { PromiseCache } from './cache.ts';
 import type { Ecosystem, EcosystemId, LoadResult } from './ecosystem.ts';
 import { globToRegExp } from './glob.ts';
+import { withoutGitIgnored } from './ignored.ts';
 
 /** A root file of the workspace (solution, package.json…) and the ecosystem managing it. */
 export interface Root {
@@ -82,7 +83,9 @@ export class Roots implements vscode.Disposable {
       const found = await Promise.all(
         this.enabled.map(async ecosystem => {
           const found = await vscode.workspace.findFiles(ecosystem.rootGlob, ecosystem.excludeGlob);
-          const files = (await ecosystem.filterRoots(found.map(u => u.fsPath))).map(f => vscode.Uri.file(f));
+          // Build outputs (.next/, dist/…) copy manifests around: git-ignored files are never roots.
+          const kept = await withoutGitIgnored(found.map(u => u.fsPath));
+          const files = (await ecosystem.filterRoots(kept)).map(f => vscode.Uri.file(f));
           files.sort((a, b) => relative(a).localeCompare(relative(b)));
           return files.map(uri => ({ ecosystem, uri }));
         }),

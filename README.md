@@ -33,7 +33,7 @@ consolidate packages, with vulnerable and deprecated versions flagged.
 
 The **Packwise** icon appears in the activity bar when the workspace contains a solution, a `package.json` or a
 `pyproject.toml` (`node_modules` and virtual environment folders are ignored, and `bin`, `obj` and `packages` for
-solutions). Each solution, workspace root (npm or uv) or standalone project is a root; the members of a workspace are
+solutions, as well as files ignored by git, such as the copies that build outputs like `.next/` make). Each solution, workspace root (npm or uv) or standalone project is a root; the members of a workspace are
 the projects of its root. Clicking the icon
 opens the package manager of the root in an editor tab. With several roots, the sidebar lists them (grouped by
 ecosystem when there are several): pick one, and the icon then reopens the last one used.
