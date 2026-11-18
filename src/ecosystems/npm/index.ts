@@ -1,7 +1,8 @@
 import * as path from 'node:path';
 import type { Ecosystem, PackageFeed, Source } from '../../ecosystem.ts';
 import { addPackage, listSources, loadLatestPrerelease, loadProject, removePackage } from './cli.ts';
-import { filterRoots, workspaceMembers } from './discovery.ts';
+import { workspaceMembers } from '../../members.ts';
+import { filterRoots } from './discovery.ts';
 import { readManifest, workspacePatterns } from './manifest.ts';
 import { NPMJS, RegistryClient } from './registry.ts';
 import { npmRules } from './rules.ts';
@@ -33,7 +34,7 @@ export const npm: Ecosystem = {
   async projectsOf(rootFile) {
     const patterns = workspacePatterns(await readManifest(rootFile));
     if (patterns.length === 0) return [rootFile];
-    const members = await workspaceMembers(path.dirname(rootFile), patterns);
+    const members = await workspaceMembers(path.dirname(rootFile), patterns, 'package.json');
     return [rootFile, ...members.map(dir => path.join(dir, 'package.json'))];
   },
 

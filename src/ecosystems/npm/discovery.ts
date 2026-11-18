@@ -2,32 +2,11 @@
 
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
-import { type Manifest, readManifest, workspaceMatcher, workspacePatterns } from './manifest.ts';
-
-/** Folders never searched for workspace members. */
-const SKIPPED = new Set(['node_modules', 'bower_components']);
-const MAX_DEPTH = 8;
+import { workspaceMatcher } from '../../members.ts';
+import { type Manifest, readManifest, workspacePatterns } from './manifest.ts';
 
 const toPosix = (p: string) => p.split(path.sep).join('/');
 const exists = (file: string) => fs.stat(file).then(() => true, () => false);
-
-/** Folders (absolute) of the workspace members of a root, sorted by path. */
-export async function workspaceMembers(rootDir: string, patterns: readonly string[]): Promise<string[]> {
-  const isMember = workspaceMatcher(patterns);
-  const depth = patterns.some(p => p.includes('**')) ? MAX_DEPTH : Math.max(0, ...patterns.map(p => p.replace(/\/+$/, '').split('/').length));
-  const members: string[] = [];
-  const walk = async (dir: string, level: number): Promise<void> => {
-    if (level > depth) return;
-    const rel = toPosix(path.relative(rootDir, dir));
-    if (isMember(rel) && (await exists(path.join(dir, 'package.json')))) members.push(dir);
-    const entries = await fs.readdir(dir, { withFileTypes: true }).catch(() => []);
-    for (const e of entries) {
-      if (e.isDirectory() && !SKIPPED.has(e.name) && !e.name.startsWith('.')) await walk(path.join(dir, e.name), level + 1);
-    }
-  };
-  await walk(rootDir, 0);
-  return members.sort();
-}
 
 /** Keeps the roots among package.json files: workspace roots and packages that are not a workspace member. */
 export async function filterRoots(files: string[]): Promise<string[]> {

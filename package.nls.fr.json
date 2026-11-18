@@ -1,5 +1,5 @@
 {
-  "description": "Gérez les packages NuGet de vos solutions .NET et les packages npm de vos projets dans un gestionnaire de packages comme celui de Visual Studio : parcourir, installer, mettre à jour, consolider, packages vulnérables et dépréciés.",
+  "description": "Gérez les packages NuGet de vos solutions .NET, les packages npm de vos projets Node.js et les packages PyPI de vos projets Python (uv) dans un gestionnaire de packages comme celui de Visual Studio : parcourir, installer, mettre à jour, consolider, packages vulnérables et dépréciés.",
   "viewContainer.packwise": "Packwise",
   "command.refresh": "Recharger",
   "view.roots": "Projets",

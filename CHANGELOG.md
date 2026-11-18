@@ -10,6 +10,10 @@
 - pnpm and Yarn projects are shown read-only.
 - The sidebar lists the solutions and npm roots of the workspace, grouped by ecosystem; **Manage Packages…** replaces
   the NuGet-specific command.
+- **Python support**: `pyproject.toml` projects and workspaces managed by uv. Installed and transitive packages come
+  from `uv.lock`, latest versions and details from PyPI, vulnerabilities from OSV.dev; changes run through
+  `uv add/remove`, keeping the extra or dependency group, extras, marker and operator of each requirement.
+- Poetry, PDM and Pipenv projects are shown read-only.
 - `packwise.ecosystems` setting to turn an ecosystem off.
 
 ## 0.4.0

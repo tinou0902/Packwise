@@ -1,6 +1,6 @@
 {
   "name": "packwise",
-  "displayName": "Packwise — Package Manager for NuGet and npm",
+  "displayName": "Packwise — Package Manager for NuGet, npm and PyPI",
   "description": "%description%",
   "version": "0.5.0",
   "publisher": "tinou0902",
@@ -8,7 +8,10 @@
   "type": "module",
   "license": "MIT",
   "icon": "media/icon.png",
-  "galleryBanner": { "color": "#0f172a", "theme": "dark" },
+  "galleryBanner": {
+    "color": "#0f172a",
+    "theme": "dark"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/tinou0902/packwise.git"
@@ -36,11 +39,16 @@
     "npm",
     "package.json",
     "workspaces",
-    "dependencies"
+    "dependencies",
+    "python",
+    "pypi",
+    "uv",
+    "pyproject"
   ],
   "activationEvents": [
     "workspaceContains:**/*.{sln,slnx}",
-    "workspaceContains:**/package.json"
+    "workspaceContains:**/package.json",
+    "workspaceContains:**/pyproject.toml"
   ],
   "main": "./dist/extension.cjs",
   "l10n": "./l10n",
@@ -71,11 +79,28 @@
           "type": "object",
           "markdownDescription": "%config.ecosystems%",
           "properties": {
-            "nuget": { "type": "boolean", "default": true, "description": "NuGet (.NET solutions)" },
-            "npm": { "type": "boolean", "default": true, "description": "npm (package.json)" }
+            "nuget": {
+              "type": "boolean",
+              "default": true,
+              "description": "NuGet (.NET solutions)"
+            },
+            "npm": {
+              "type": "boolean",
+              "default": true,
+              "description": "npm (package.json)"
+            },
+            "pypi": {
+              "type": "boolean",
+              "default": true,
+              "description": "PyPI (Python, pyproject.toml managed by uv)"
+            }
           },
           "additionalProperties": false,
-          "default": { "nuget": true, "npm": true }
+          "default": {
+            "nuget": true,
+            "npm": true,
+            "pypi": true
+          }
         }
       }
     },
@@ -104,14 +129,14 @@
       "explorer/context": [
         {
           "command": "packwise.manage",
-          "when": "resourceExtname =~ /^\\.slnx?$/ || resourceFilename == package.json",
+          "when": "resourceExtname =~ /^\\.slnx?$/ || resourceFilename == package.json || resourceFilename == pyproject.toml",
           "group": "navigation@9"
         }
       ],
       "editor/title": [
         {
           "command": "packwise.manage",
-          "when": "resourceExtname =~ /^\\.slnx?$/ || resourceFilename == package.json",
+          "when": "resourceExtname =~ /^\\.slnx?$/ || resourceFilename == package.json || resourceFilename == pyproject.toml",
           "group": "navigation"
         }
       ]
@@ -130,5 +155,8 @@
     "@vscode/vsce": "^4.1.1",
     "esbuild": "^0.28.2",
     "typescript": "^7.0.2"
+  },
+  "dependencies": {
+    "smol-toml": "^1.9.1"
   }
 }

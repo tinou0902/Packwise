@@ -5,7 +5,7 @@
 
 import type { Advisory } from './advisory.ts';
 
-export type EcosystemId = 'nuget' | 'npm';
+export type EcosystemId = 'nuget' | 'npm' | 'pypi';
 
 /** Package identity and version rules; pure, so the webview can use them too. */
 export interface PackageRules {
@@ -26,7 +26,7 @@ export interface Package {
   latest: string;
   /** Referenced directly by the project file. */
   isDirect: boolean;
-  /** Kind of a direct reference other than a regular one, shown as a badge (npm: "dev", "peer", "optional"). */
+  /** Kind of a direct reference other than a regular one, shown as a badge (npm: "dev", "peer", "optional"; PyPI: a dependency group or "[extra]"). */
   kind?: string;
   vulnerabilities: Advisory[];
 }
@@ -82,7 +82,8 @@ export interface VersionDetails {
   published: string;
   vulnerabilities: Advisory[];
   deprecation?: Deprecation;
-  dependencies: Dependencies[];
+  /** undefined = unknown (PyPI only gives the dependencies of the latest version). */
+  dependencies?: Dependencies[];
   /** Page of this version on the public gallery of the source (nuget.org…), when there is one. */
   galleryUrl?: string;
   /** Where to report the package to the gallery, when it accepts reports. */

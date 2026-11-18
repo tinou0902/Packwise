@@ -1,17 +1,18 @@
 # Packwise
 
-Manage the NuGet packages of your .NET solutions and the npm packages of your JavaScript projects in a package manager
-modelled on Visual Studio's **Manage NuGet Packages for Solution** window: browse, install, update, uninstall and
+Manage the NuGet packages of your .NET solutions, the npm packages of your JavaScript projects and the PyPI packages of
+your Python projects in a package manager modelled on Visual Studio's **Manage NuGet Packages for Solution** window: browse, install, update, uninstall and
 consolidate packages, with vulnerable and deprecated versions flagged.
 
 ![Browse tab: search results and package details](images/browse.png)
 
 ## Features
 
-- **NuGet** (.NET solutions) and **npm** (`package.json`, workspaces included) in the same panel.
-- Search the package sources of your `NuGet.Config` or the registries of your `.npmrc` and see, on each result, which
-  version your projects use.
-- Install, update and uninstall packages in one or several projects of a solution or an npm workspace at once.
+- **NuGet** (.NET solutions), **npm** (`package.json`, workspaces included) and **PyPI** (`pyproject.toml` managed by
+  [uv](https://docs.astral.sh/uv/), workspaces included) in the same panel.
+- Search the package sources of your `NuGet.Config`, the registries of your `.npmrc` or pypi.org and see, on each
+  result, which version your projects use.
+- Install, update and uninstall packages in one or several projects of a solution or a workspace at once.
 - Update every outdated package in one go from the **Updates** tab.
 - Spot vulnerable, deprecated and unlisted versions before picking one.
 - Align packages installed with different versions across projects (**Consolidate**).
@@ -24,16 +25,19 @@ consolidate packages, with vulnerable and deprecated versions flagged.
 - NuGet: the .NET SDK (`dotnet` on `PATH`) and a `.sln` or `.slnx` file referencing the `.csproj` projects.
 - npm: Node.js and npm (`npm` on `PATH`), and a `package.json`. Run `npm install` first so that installed versions,
   transitive packages and vulnerabilities (which need `package-lock.json`) are available.
+- PyPI: uv (`uv` on `PATH`) and a `pyproject.toml` with a `[project]` table. Installed and transitive packages come from
+  `uv.lock` (run `uv lock` or `uv sync` first); vulnerabilities from [OSV.dev](https://osv.dev).
 - Network access for latest versions, vulnerabilities and details. Offline, installed packages are still shown with a warning.
 
 ## Usage
 
-The **Packwise** icon appears in the activity bar when the workspace contains a solution or a `package.json`
-(`node_modules` folders are ignored, and `bin`, `obj` and `packages` for solutions). Each solution, npm workspace root
-or standalone `package.json` is a root; the members of an npm workspace are the projects of its root. Clicking the icon
+The **Packwise** icon appears in the activity bar when the workspace contains a solution, a `package.json` or a
+`pyproject.toml` (`node_modules` and virtual environment folders are ignored, and `bin`, `obj` and `packages` for
+solutions). Each solution, workspace root (npm or uv) or standalone project is a root; the members of a workspace are
+the projects of its root. Clicking the icon
 opens the package manager of the root in an editor tab. With several roots, the sidebar lists them (grouped by
 ecosystem when there are several): pick one, and the icon then reopens the last one used.
-**Manage Packages…** is also in the context menu of a `.sln`/`.slnx` or `package.json` file in the Explorer, in the
+**Manage Packages…** is also in the context menu of a `.sln`/`.slnx`, `package.json` or `pyproject.toml` file in the Explorer, in the
 editor title of an open one, and in the command palette. The `packwise.ecosystems` setting turns an ecosystem off
 (for example `"packwise.ecosystems": { "npm": false }`).
 
@@ -49,12 +53,17 @@ The toolbar has the search box (`Ctrl+L`), **Refresh**, **Include prerelease** a
 projects of the solution and their version, the version picker (latest stable/prerelease, vulnerable, deprecated and
 unlisted versions flagged), **Install**/**Uninstall** for the checked projects, vulnerability and deprecation notices,
 metadata (owners, authors, license, downloads, publication date, URLs, tags) and dependencies per target framework
-(per dependency type for npm). Changes run through `dotnet add/remove package` or `npm install/uninstall` with a
+(per dependency type for npm, per extra for PyPI). Changes run through `dotnet add/remove package`,
+`npm install/uninstall` or `uv add/remove` with a
 cancellable progress notification; the commands and their output are written to the **Packwise** output channel.
 
 For npm, dependency types are shown as badges (`dev`, `peer`, `optional`) and kept on update, as is the range prefix
 (`^`, `~` or an exact version). A new reference goes to `dependencies`, or to `devDependencies` with the
 **Development dependency** option.
+
+For PyPI, optional dependencies (`[extra]`) and dependency groups (`dev`, …) are shown as badges and kept on update, as
+are the extras, environment marker and operator (`==`, `>=`, `~=`) of the requirement; other specifiers become `>=`.
+A new reference goes to `[project].dependencies`, or to the `dev` group with the **Development dependency** option.
 
 The panel reloads when a project file or the solution changes, so edits made outside the extension show up too.
 A project that was never restored is restored automatically.
@@ -66,6 +75,10 @@ A project that was never restored is restored automatically.
 - npm: projects managed by pnpm or Yarn (`packageManager` field or lockfile) are read-only: their packages, installed
   and latest versions are shown, changes are left to their own CLI. Registries needing credentials are not browsed
   (they are still used by `npm` when installing). Local, Git and `workspace:` dependencies are not listed.
+- PyPI: only uv is driven; Poetry, PDM and Pipenv projects (lock file or `[tool.poetry]`) are read-only. Only pypi.org is
+  browsed: PyPI has no search API, so a search looks up the exact package name, and the dependencies are known for the
+  latest version only. Custom indexes are not browsed (they are still used by `uv`). Direct references
+  (`name @ url`), path and Git dependencies are not listed.
 - Installing a transitive package adds a top-level reference to the project file.
 
 ## Development
@@ -73,7 +86,9 @@ A project that was never restored is restored automatically.
 Each ecosystem implements the `Ecosystem` interface (`src/ecosystem.ts`) in `src/ecosystems/<id>/`. NuGet: installed
 and outdated packages come from the `dotnet list package` CLI; search, version history and metadata from the NuGet v3
 API of the configured package sources. npm: installed, outdated and vulnerable packages come from `npm ls`,
-`npm outdated` and `npm audit`; search, version history and metadata from the registry API.
+`npm outdated` and `npm audit`; search, version history and metadata from the registry API. PyPI: installed packages
+come from `pyproject.toml` and `uv.lock`, versions from the PyPI simple and JSON APIs, vulnerabilities from OSV.dev;
+changes run through `uv add/remove`.
 
 ```sh
 npm ci
@@ -89,4 +104,5 @@ Install a build with `code --install-extension packwise-<version>.vsix`. The CI 
 
 [MIT](LICENSE)
 
-Packwise is an independent project, not affiliated with or endorsed by Microsoft, the .NET Foundation, GitHub or npm, Inc.
+Packwise is an independent project, not affiliated with or endorsed by Microsoft, the .NET Foundation, GitHub, npm, Inc., the
+Python Software Foundation or Astral.
