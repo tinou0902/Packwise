@@ -1,25 +1,6 @@
-import type { Advisory } from './advisory.ts';
+import type { Package, ProjectData } from '../../ecosystem.ts';
+import { nugetRules } from './rules.ts';
 import { compareVersions } from './semver.ts';
-
-export interface Package {
-  id: string;
-  /** Range declared in the project file ("" for transitive packages). */
-  requested: string;
-  /** Highest resolved version across target frameworks. */
-  resolved: string;
-  /** Latest stable version reported by `dotnet list --outdated` ("" = unknown or up to date). */
-  latest: string;
-  /** Referenced directly by the project file. */
-  isDirect: boolean;
-  vulnerabilities: Advisory[];
-}
-
-export interface ProjectData {
-  /** Groups the packages are resolved for (target frameworks for NuGet). */
-  groups: string[];
-  /** Packages merged across groups, keyed by lower-cased id. */
-  packages: Map<string, Package>;
-}
 
 /* Shape of `dotnet list package --format json`:
  * { projects: [{ path, frameworks: [{ framework, topLevelPackages: [...], transitivePackages: [...] }] }] } */
@@ -46,7 +27,7 @@ function frameworksOf(json: string): ListedFramework[] | undefined {
 }
 
 function getOrAdd(data: ProjectData, id: string): Package {
-  const key = id.toLowerCase();
+  const key = nugetRules.normalizeId(id);
   let pkg = data.packages.get(key);
   if (!pkg) {
     pkg = { id, requested: '', resolved: '', latest: '', isDirect: false, vulnerabilities: [] };
@@ -86,13 +67,13 @@ export function applyOutdated(data: ProjectData, json: string): void {
   }
 }
 
-/** Latest versions reported by `dotnet list package --outdated --format json` (lower-cased id → highest latest). */
+/** Latest versions reported by `dotnet list package --outdated --format json` (normalized id → highest latest). */
 export function latestVersions(json: string): Map<string, string> {
   const latest = new Map<string, string>();
   for (const fw of frameworksOf(json) ?? []) {
     for (const p of fw.topLevelPackages ?? []) {
       if (!p.id || !p.latestVersion) continue;
-      const key = p.id.toLowerCase();
+      const key = nugetRules.normalizeId(p.id);
       const current = latest.get(key);
       if (!current || compareVersions(current, p.latestVersion) < 0) latest.set(key, p.latestVersion);
     }

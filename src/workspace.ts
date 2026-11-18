@@ -1,7 +1,6 @@
 import * as vscode from 'vscode';
 import { PromiseCache } from './cache.ts';
-import { loadProject, type LoadResult } from './dotnet.ts';
-import { parseSolution } from './solution.ts';
+import type { Ecosystem, LoadResult } from './ecosystem.ts';
 
 const EXCLUDE = '**/{bin,obj,node_modules,packages}/**';
 
@@ -18,9 +17,12 @@ export class Solutions implements vscode.Disposable {
   private readonly cache = new PromiseCache<string, LoadResult>();
   private readonly disposables: vscode.Disposable[] = [this.changed, this.invalidated];
 
-  constructor() {
-    const solutionWatcher = vscode.workspace.createFileSystemWatcher('**/*.{sln,slnx}');
-    const projectWatcher = vscode.workspace.createFileSystemWatcher('**/*.csproj');
+  readonly ecosystem: Ecosystem;
+
+  constructor(ecosystem: Ecosystem) {
+    this.ecosystem = ecosystem;
+    const solutionWatcher = vscode.workspace.createFileSystemWatcher(ecosystem.rootGlob);
+    const projectWatcher = vscode.workspace.createFileSystemWatcher(ecosystem.projectGlob);
     this.disposables.push(
       solutionWatcher,
       projectWatcher,
@@ -41,7 +43,7 @@ export class Solutions implements vscode.Disposable {
   /** Solution files of the workspace, sorted by path. */
   find(): Promise<vscode.Uri[]> {
     this.solutions ??= (async () => {
-      const files = await vscode.workspace.findFiles('**/*.{sln,slnx}', EXCLUDE);
+      const files = await vscode.workspace.findFiles(this.ecosystem.rootGlob, EXCLUDE);
       files.sort((a, b) => vscode.workspace.asRelativePath(a).localeCompare(vscode.workspace.asRelativePath(b)));
       await vscode.commands.executeCommand('setContext', 'packwise.hasSolutions', files.length > 0);
       return files;
@@ -51,15 +53,12 @@ export class Solutions implements vscode.Disposable {
 
   /** Project files of a solution that exist on disk. */
   async projectsOf(solution: vscode.Uri): Promise<vscode.Uri[]> {
-    const text = new TextDecoder().decode(await vscode.workspace.fs.readFile(solution));
-    const files = parseSolution(text, solution.fsPath).map(f => vscode.Uri.file(f));
-    const exists = await Promise.all(files.map(f => vscode.workspace.fs.stat(f).then(() => true, () => false)));
-    return files.filter((_, i) => exists[i]);
+    return (await this.ecosystem.projectsOf(solution.fsPath)).map(f => vscode.Uri.file(f));
   }
 
   /** Packages of a project. */
   load(file: vscode.Uri): Promise<LoadResult> {
-    return this.cache.get(file.toString(), () => loadProject(file.fsPath));
+    return this.cache.get(file.toString(), () => this.ecosystem.load(file.fsPath));
   }
 
   /** Reloads one project (after an update, a removal or an edit of its file). */

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { compareVersions, isPrerelease } from '../src/semver.ts';
+import { compareVersions, isPrerelease } from '../src/ecosystems/nuget/semver.ts';
 
 test('compareVersions orders numeric parts and prereleases', () => {
   assert.equal(compareVersions('1.2.10', '1.2.9'), 1);

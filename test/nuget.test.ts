@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { parseSources } from '../src/dotnet.ts';
-import { latestVersions } from '../src/model.ts';
-import { nugetOrgPage, toVersionDetails } from '../src/nuget.ts';
+import { parseSources } from '../src/ecosystems/nuget/dotnet.ts';
+import { latestVersions } from '../src/ecosystems/nuget/model.ts';
+import { nugetOrgPage, toVersionDetails } from '../src/ecosystems/nuget/feed.ts';
 
 test('parseSources keeps enabled HTTP sources', () => {
   const output = [

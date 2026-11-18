@@ -1,6 +1,7 @@
 import * as path from 'node:path';
 import * as vscode from 'vscode';
-import { setLogger } from './dotnet.ts';
+import { nuget } from './ecosystems/index.ts';
+import { setLogger } from './log.ts';
 import { ManagerPanel } from './manager/panel.ts';
 import { Solutions } from './workspace.ts';
 
@@ -9,7 +10,7 @@ const LAST_SOLUTION = 'packwise.lastSolution';
 export function activate(context: vscode.ExtensionContext): void {
   const output = vscode.window.createOutputChannel('Packwise', { log: true });
   setLogger(line => output.info(line));
-  const solutions = new Solutions();
+  const solutions = new Solutions(nuget);
   const list = new SolutionList(solutions);
   const view = vscode.window.createTreeView('packwise.solutions', { treeDataProvider: list });
   context.subscriptions.push(output, solutions, list, view);

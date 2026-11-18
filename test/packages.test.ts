@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { nugetRules as rules } from '../src/ecosystems/nuget/rules.ts';
 import type { InstalledPackage, ProjectState, VersionDetails } from '../src/manager/protocol.ts';
 import {
   formatDownloads,
@@ -32,7 +33,7 @@ const projects = [
   ]),
 ];
 
-const input = (extra: Partial<ListInput> = {}): ListInput => ({ projects, hits: [], query: '', prerelease: false, ...extra });
+const input = (extra: Partial<ListInput> = {}): ListInput => ({ projects, hits: [], query: '', prerelease: false, rules, ...extra });
 
 test('installed tab: direct packages merged across projects, transitive ones apart', () => {
   const { rows, transitive } = rowsFor('installed', input());
@@ -56,9 +57,9 @@ test('browse tab: search hits with their installs', () => {
 });
 
 test('updateTarget ignores unknown or older latest versions', () => {
-  assert.equal(updateTarget(pkg('A', '2.0.0', { latest: '1.0.0' }), false), undefined);
-  assert.equal(updateTarget(pkg('A', '2.0.0'), true), undefined);
-  assert.equal(updateTarget(pkg('A', '', { latest: '1.0.0' }), false), undefined);
+  assert.equal(updateTarget(pkg('A', '2.0.0', { latest: '1.0.0' }), false, rules), undefined);
+  assert.equal(updateTarget(pkg('A', '2.0.0'), true, rules), undefined);
+  assert.equal(updateTarget(pkg('A', '', { latest: '1.0.0' }), false, rules), undefined);
 });
 
 test('matchesQuery needs every word', () => {
@@ -79,13 +80,13 @@ test('versionChoices: shortcuts, then visible versions newest first with their f
     v('2.0.0', { deprecation: { reasons: ['Legacy'], message: '', alternateId: '' } }),
     v('3.0.0-beta'),
   ];
-  assert.deepEqual(versionChoices(versions, ['1.1.0'], false), [
+  assert.deepEqual(versionChoices(versions, ['1.1.0'], false, rules), [
     { kind: 'latestStable', value: '2.0.0' },
     { kind: 'version', value: '2.0.0', flags: ['deprecated'] },
     { kind: 'version', value: '1.1.0', flags: ['unlisted'] },
     { kind: 'version', value: '1.0.0', flags: ['vulnerable'] },
   ]);
-  assert.deepEqual(versionChoices(versions, [], true).slice(0, 3), [
+  assert.deepEqual(versionChoices(versions, [], true, rules).slice(0, 3), [
     { kind: 'latestStable', value: '2.0.0' },
     { kind: 'latestPrerelease', value: '3.0.0-beta' },
     { kind: 'version', value: '3.0.0-beta', flags: [] },
