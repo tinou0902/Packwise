@@ -4,7 +4,7 @@ import { forEachLimited, PromiseCache } from '../cache.ts';
 import { errorMessage } from '../errors.ts';
 import type { Ecosystem } from '../ecosystem.ts';
 import { Feeds } from '../feeds.ts';
-import type { Solutions } from '../workspace.ts';
+import type { Root, Roots } from '../workspace.ts';
 import { ALL_SOURCES, type ProjectState, type ToHost, type ToWebview } from './protocol.ts';
 import { WEBVIEW_STRINGS } from './strings.ts';
 
@@ -23,25 +23,25 @@ interface Change {
   remove: boolean;
 }
 
-/** "Manage NuGet Packages for Solution" editor, like Visual Studio's. One per solution file. */
+/** Package manager editor, like Visual Studio's "Manage NuGet Packages for Solution". One per root file. */
 export class ManagerPanel {
   private static readonly panels = new Map<string, ManagerPanel>();
 
-  static show(context: vscode.ExtensionContext, solutions: Solutions, solution: vscode.Uri): void {
-    const key = solution.toString();
+  static show(context: vscode.ExtensionContext, roots: Roots, root: Root): void {
+    const key = root.uri.toString();
     const existing = ManagerPanel.panels.get(key);
     if (existing) {
       existing.panel.reveal();
       return;
     }
-    const title = vscode.l10n.t('NuGet: {0}', solutions.ecosystem.rootName(solution.fsPath));
+    const title = vscode.l10n.t('Packwise: {0}', root.ecosystem.rootName(root.uri.fsPath));
     const panel = vscode.window.createWebviewPanel('packwise.manager', title, vscode.ViewColumn.Active, {
       enableScripts: true,
       retainContextWhenHidden: true,
       localResourceRoots: [vscode.Uri.joinPath(context.extensionUri, 'dist'), vscode.Uri.joinPath(context.extensionUri, 'media')],
     });
     panel.iconPath = vscode.Uri.joinPath(context.extensionUri, 'media', 'packwise.svg');
-    ManagerPanel.panels.set(key, new ManagerPanel(context, solutions, panel, solution));
+    ManagerPanel.panels.set(key, new ManagerPanel(context, roots, panel, root));
   }
 
   private readonly disposables: vscode.Disposable[] = [];
@@ -54,28 +54,29 @@ export class ManagerPanel {
   private reloadTimer: NodeJS.Timeout | undefined;
   private busy = false;
 
-  private readonly solutions: Solutions;
+  private readonly roots: Roots;
   private readonly ecosystem: Ecosystem;
   private readonly feeds: Feeds;
   private readonly panel: vscode.WebviewPanel;
-  private readonly solution: vscode.Uri;
+  /** Root file of the panel. */
+  private readonly root: vscode.Uri;
 
-  private constructor(context: vscode.ExtensionContext, solutions: Solutions, panel: vscode.WebviewPanel, solution: vscode.Uri) {
-    this.solutions = solutions;
-    this.ecosystem = solutions.ecosystem;
+  private constructor(context: vscode.ExtensionContext, roots: Roots, panel: vscode.WebviewPanel, root: Root) {
+    this.roots = roots;
+    this.ecosystem = root.ecosystem;
     this.feeds = new Feeds(this.ecosystem);
     this.panel = panel;
-    this.solution = solution;
+    this.root = root.uri;
     panel.webview.html = this.html(context);
     this.disposables.push(
       panel.onDidDispose(() => this.dispose()),
       panel.webview.onDidReceiveMessage((m: ToHost) => void this.onMessage(m)),
-      solutions.onDidInvalidate(uri => this.scheduleReload(uri)),
+      roots.onDidInvalidate(uri => this.scheduleReload(uri)),
     );
   }
 
   private dispose(): void {
-    ManagerPanel.panels.delete(this.solution.toString());
+    ManagerPanel.panels.delete(this.root.toString());
     clearTimeout(this.reloadTimer);
     this.disposables.forEach(d => d.dispose());
   }
@@ -88,7 +89,11 @@ export class ManagerPanel {
     return {
       type: 'init',
       ecosystem: this.ecosystem.id,
-      title: this.ecosystem.rootName(this.solution.fsPath),
+      title: vscode.l10n.t(
+        '{0} Package Manager: {1}',
+        this.ecosystem.label,
+        vscode.l10n.t(this.ecosystem.rootLabel, this.ecosystem.rootName(this.root.fsPath)),
+      ),
       sources: this.sourceList(),
       strings: Object.fromEntries(WEBVIEW_STRINGS.map(k => [k, vscode.l10n.t(k)])),
     };
@@ -127,7 +132,7 @@ export class ManagerPanel {
         return this.run(m.projects.map(uri => ({ uri, id: m.id, version: '', remove: true })));
       case 'refresh':
         this.ecosystem.resetFeeds();
-        this.solutions.refresh();
+        this.roots.refresh();
         await this.loadSources();
         return;
       case 'openUrl':
@@ -165,7 +170,7 @@ export class ManagerPanel {
 
   private async loadSources(): Promise<void> {
     // Unreadable configuration: the ecosystem's default sources.
-    this.feeds.setSources(await this.ecosystem.sources(this.solution.fsPath).catch(() => []));
+    this.feeds.setSources(await this.ecosystem.sources(this.root.fsPath).catch(() => []));
     this.post({ type: 'sources', sources: this.sourceList() });
   }
 
@@ -173,9 +178,9 @@ export class ManagerPanel {
 
   private async loadAll(): Promise<void> {
     try {
-      this.projects = await this.solutions.projectsOf(this.solution);
+      this.projects = await this.roots.projectsOf({ ecosystem: this.ecosystem, uri: this.root });
     } catch {
-      // Solution deleted or unreadable: the panel stays open, empty.
+      // Root deleted or unreadable: the panel stays open, empty.
       this.projects = [];
     }
     const keep = new Set(this.projects.map(String));
@@ -214,7 +219,7 @@ export class ManagerPanel {
 
   private async loadProject(uri: vscode.Uri): Promise<void> {
     try {
-      const { data, warnings } = await this.solutions.load(uri);
+      const { data, warnings } = await this.roots.load(this.ecosystem, uri);
       let pre = new Map<string, string>();
       const preWarnings: string[] = [];
       if (this.prerelease) {
@@ -292,8 +297,8 @@ export class ManagerPanel {
     } finally {
       this.busy = false;
       this.post({ type: 'busy', text: '' });
-      // Central package management changes Directory.Packages.props, which the .csproj watcher misses.
-      for (const uri of touched) this.solutions.invalidate(vscode.Uri.parse(uri));
+      // Shared files (Directory.Packages.props, lockfiles…) can change without the project file: reload explicitly.
+      for (const uri of touched) this.roots.invalidate(vscode.Uri.parse(uri));
     }
     if (failures.length > 0) void vscode.window.showErrorMessage(failures.join('\n'));
   }

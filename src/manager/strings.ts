@@ -3,8 +3,6 @@
  * "{0}" placeholders are filled by the webview.
  */
 export const WEBVIEW_STRINGS = [
-  'NuGet Package Manager: {0}',
-  "Solution '{0}'",
   'Browse',
   'Installed',
   'Updates',
@@ -51,9 +49,9 @@ export const WEBVIEW_STRINGS = [
   'vulnerable',
   'not installed',
   'Transitively referenced: installing it adds a top-level reference.',
-  'Versions installed in the solution differ.',
+  'Several versions of this package are installed.',
   'Package details unavailable: {0}',
-  'Packages with different versions in the solution are shown here.',
+  'Packages installed in several versions are shown here.',
   'All packages are up to date.',
   'Prefix reserved: verified owner',
   'multiple',

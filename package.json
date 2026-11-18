@@ -52,17 +52,31 @@
     "views": {
       "packwise": [
         {
-          "id": "packwise.solutions",
-          "name": "%view.solutions%",
+          "id": "packwise.roots",
+          "name": "%view.roots%",
           "icon": "media/packwise.svg",
-          "when": "packwise.hasSolutions"
+          "when": "packwise.hasRoots"
         }
       ]
     },
+    "configuration": {
+      "title": "Packwise",
+      "properties": {
+        "packwise.ecosystems": {
+          "type": "object",
+          "markdownDescription": "%config.ecosystems%",
+          "properties": {
+            "nuget": { "type": "boolean", "default": true, "description": "NuGet (.NET solutions)" }
+          },
+          "additionalProperties": false,
+          "default": { "nuget": true }
+        }
+      }
+    },
     "commands": [
       {
-        "command": "packwise.manageSolution",
-        "title": "%command.manageSolution%",
+        "command": "packwise.manage",
+        "title": "%command.manage%",
         "category": "Packwise",
         "icon": "$(package)"
       },
@@ -77,20 +91,20 @@
       "view/title": [
         {
           "command": "packwise.refresh",
-          "when": "view == packwise.solutions",
+          "when": "view == packwise.roots",
           "group": "navigation"
         }
       ],
       "explorer/context": [
         {
-          "command": "packwise.manageSolution",
+          "command": "packwise.manage",
           "when": "resourceExtname =~ /^\\.slnx?$/",
           "group": "navigation@9"
         }
       ],
       "editor/title": [
         {
-          "command": "packwise.manageSolution",
+          "command": "packwise.manage",
           "when": "resourceExtname =~ /^\\.slnx?$/",
           "group": "navigation"
         }

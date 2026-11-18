@@ -1,64 +1,110 @@
 import * as vscode from 'vscode';
 import { PromiseCache } from './cache.ts';
-import type { Ecosystem, LoadResult } from './ecosystem.ts';
+import type { Ecosystem, EcosystemId, LoadResult } from './ecosystem.ts';
 
-const EXCLUDE = '**/{bin,obj,node_modules,packages}/**';
+/** A root file of the workspace (solution, package.json…) and the ecosystem managing it. */
+export interface Root {
+  readonly ecosystem: Ecosystem;
+  readonly uri: vscode.Uri;
+}
 
-/** Solutions of the workspace, their projects and the packages of each project (cached, shared by every panel). */
-export class Solutions implements vscode.Disposable {
+/** `packwise.ecosystems` setting: ecosystem id → enabled (missing ids are enabled). */
+const SETTING = 'packwise.ecosystems';
+
+/**
+ * Roots of the workspace for every enabled ecosystem, their projects and the packages of each project
+ * (cached, shared by every panel).
+ */
+export class Roots implements vscode.Disposable {
   private readonly changed = new vscode.EventEmitter<void>();
-  /** The list of solutions may have changed. */
+  /** The list of roots may have changed. */
   readonly onDidChange = this.changed.event;
   private readonly invalidated = new vscode.EventEmitter<vscode.Uri | undefined>();
-  /** A project (or every project and solution when undefined) must be reloaded. */
+  /** A project (or every project and root when undefined) must be reloaded. */
   readonly onDidInvalidate = this.invalidated.event;
 
-  private solutions: Promise<vscode.Uri[]> | undefined;
+  private roots: Promise<Root[]> | undefined;
   private readonly cache = new PromiseCache<string, LoadResult>();
   private readonly disposables: vscode.Disposable[] = [this.changed, this.invalidated];
+  /** Watchers of the enabled ecosystems, rebuilt when the setting changes. */
+  private watchers: vscode.Disposable[] = [];
+  private readonly all: readonly Ecosystem[];
+  private enabled: readonly Ecosystem[] = [];
 
-  readonly ecosystem: Ecosystem;
-
-  constructor(ecosystem: Ecosystem) {
-    this.ecosystem = ecosystem;
-    const solutionWatcher = vscode.workspace.createFileSystemWatcher(ecosystem.rootGlob);
-    const projectWatcher = vscode.workspace.createFileSystemWatcher(ecosystem.projectGlob);
+  constructor(ecosystems: readonly Ecosystem[]) {
+    this.all = ecosystems;
+    this.configure();
     this.disposables.push(
-      solutionWatcher,
-      projectWatcher,
-      solutionWatcher.onDidCreate(() => this.rescan()),
-      solutionWatcher.onDidDelete(() => this.rescan()),
-      // Projects added to or removed from a solution: panels re-read it, package caches stay valid.
-      solutionWatcher.onDidChange(() => this.invalidated.fire(undefined)),
-      // Our own add/remove and external edits both land here.
-      projectWatcher.onDidChange(uri => this.invalidate(uri)),
       vscode.workspace.onDidChangeWorkspaceFolders(() => this.rescan()),
+      vscode.workspace.onDidChangeConfiguration(e => {
+        if (!e.affectsConfiguration(SETTING)) return;
+        this.configure();
+        this.refresh();
+      }),
     );
   }
 
   dispose(): void {
+    this.watchers.forEach(d => d.dispose());
     this.disposables.forEach(d => d.dispose());
   }
 
-  /** Solution files of the workspace, sorted by path. */
-  find(): Promise<vscode.Uri[]> {
-    this.solutions ??= (async () => {
-      const files = await vscode.workspace.findFiles(this.ecosystem.rootGlob, EXCLUDE);
-      files.sort((a, b) => vscode.workspace.asRelativePath(a).localeCompare(vscode.workspace.asRelativePath(b)));
-      await vscode.commands.executeCommand('setContext', 'packwise.hasSolutions', files.length > 0);
-      return files;
-    })();
-    return this.solutions;
+  /** Enabled ecosystems, in registration order. */
+  get ecosystems(): readonly Ecosystem[] {
+    return this.enabled;
   }
 
-  /** Project files of a solution that exist on disk. */
-  async projectsOf(solution: vscode.Uri): Promise<vscode.Uri[]> {
-    return (await this.ecosystem.projectsOf(solution.fsPath)).map(f => vscode.Uri.file(f));
+  private configure(): void {
+    const setting = vscode.workspace.getConfiguration().get<Partial<Record<EcosystemId, boolean>>>(SETTING) ?? {};
+    this.enabled = this.all.filter(e => setting[e.id] !== false);
+    this.watchers.forEach(d => d.dispose());
+    this.watchers = this.enabled.flatMap(e => {
+      const rootWatcher = vscode.workspace.createFileSystemWatcher(e.rootGlob);
+      const projectWatcher = vscode.workspace.createFileSystemWatcher(e.projectGlob);
+      return [
+        rootWatcher,
+        projectWatcher,
+        rootWatcher.onDidCreate(() => this.rescan()),
+        rootWatcher.onDidDelete(() => this.rescan()),
+        // Projects added to or removed from a root: panels re-read it, package caches stay valid.
+        rootWatcher.onDidChange(() => this.invalidated.fire(undefined)),
+        // Our own add/remove and external edits both land here.
+        projectWatcher.onDidChange(uri => this.invalidate(uri)),
+      ];
+    });
+  }
+
+  /** Roots of the workspace, sorted by ecosystem then path. */
+  find(): Promise<Root[]> {
+    this.roots ??= (async () => {
+      const relative = (u: vscode.Uri) => vscode.workspace.asRelativePath(u);
+      const found = await Promise.all(
+        this.enabled.map(async ecosystem => {
+          const files = await vscode.workspace.findFiles(ecosystem.rootGlob, ecosystem.excludeGlob);
+          files.sort((a, b) => relative(a).localeCompare(relative(b)));
+          return files.map(uri => ({ ecosystem, uri }));
+        }),
+      );
+      const roots = found.flat();
+      await vscode.commands.executeCommand('setContext', 'packwise.hasRoots', roots.length > 0);
+      return roots;
+    })();
+    return this.roots;
+  }
+
+  /** The root of a file, if it is one. */
+  async rootOf(uri: vscode.Uri): Promise<Root | undefined> {
+    return (await this.find()).find(r => r.uri.toString() === uri.toString());
+  }
+
+  /** Project files of a root that exist on disk. */
+  async projectsOf(root: Root): Promise<vscode.Uri[]> {
+    return (await root.ecosystem.projectsOf(root.uri.fsPath)).map(f => vscode.Uri.file(f));
   }
 
   /** Packages of a project. */
-  load(file: vscode.Uri): Promise<LoadResult> {
-    return this.cache.get(file.toString(), () => this.ecosystem.load(file.fsPath));
+  load(ecosystem: Ecosystem, file: vscode.Uri): Promise<LoadResult> {
+    return this.cache.get(file.toString(), () => ecosystem.load(file.fsPath));
   }
 
   /** Reloads one project (after an update, a removal or an edit of its file). */
@@ -74,7 +120,7 @@ export class Solutions implements vscode.Disposable {
   }
 
   private rescan(): void {
-    this.solutions = undefined;
+    this.roots = undefined;
     this.changed.fire();
     this.invalidated.fire(undefined);
   }
