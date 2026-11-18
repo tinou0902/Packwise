@@ -1,5 +1,5 @@
 {
-  "description": "Manage the NuGet packages of your .NET solutions and the npm packages of your projects in a Visual Studio-like package manager: browse, install, update, consolidate, vulnerable and deprecated packages.",
+  "description": "Manage the NuGet packages of your .NET solutions, the npm packages of your Node.js projects and the PyPI packages of your Python projects (uv) in a Visual Studio-like package manager: browse, install, update, consolidate, vulnerable and deprecated packages.",
   "viewContainer.packwise": "Packwise",
   "command.refresh": "Refresh",
   "view.roots": "Projects",

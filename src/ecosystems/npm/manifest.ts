@@ -1,7 +1,6 @@
 /* package.json: dependency fields, workspaces and range prefixes. Pure, except `readManifest`. */
 
 import * as fs from 'node:fs/promises';
-import { globToRegExp } from '../../glob.ts';
 
 export const DEPENDENCY_FIELDS = ['dependencies', 'devDependencies', 'optionalDependencies', 'peerDependencies'] as const;
 export type DependencyField = (typeof DEPENDENCY_FIELDS)[number];
@@ -42,13 +41,6 @@ export async function readManifest(file: string): Promise<Manifest> {
 export function workspacePatterns(m: Manifest): string[] {
   const w = m.workspaces;
   return (Array.isArray(w) ? w : (w?.packages ?? [])).filter(p => typeof p === 'string' && p.trim());
-}
-
-/** Tells whether a folder (relative to the workspace root, "/"-separated) is a workspace of these globs. */
-export function workspaceMatcher(patterns: readonly string[]): (relativeDir: string) => boolean {
-  const include = patterns.filter(p => !p.startsWith('!')).map(globToRegExp);
-  const exclude = patterns.filter(p => p.startsWith('!')).map(p => globToRegExp(p.slice(1)));
-  return dir => dir !== '' && include.some(r => r.test(dir)) && !exclude.some(r => r.test(dir));
 }
 
 /** A range resolved from the registry (not a local path, git URL, alias or workspace protocol). */

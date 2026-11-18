@@ -3,19 +3,19 @@ import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { test } from 'node:test';
-import { detectPackageManager, filterRoots, findWorkspaceRoot, workspaceMembers } from '../src/ecosystems/npm/discovery.ts';
+import { detectPackageManager, filterRoots, findWorkspaceRoot } from '../src/ecosystems/npm/discovery.ts';
 import {
   declaredDependencies,
   isPackageName,
   isRegistryRange,
   isVersion,
   savePrefix,
-  workspaceMatcher,
   workspacePatterns,
 } from '../src/ecosystems/npm/manifest.ts';
 import { applyAudit, applyOutdated, highestTag, parseTree } from '../src/ecosystems/npm/model.ts';
 import { encodeName, packumentVersions, parseConfig, parseSearch, registryFor } from '../src/ecosystems/npm/registry.ts';
 import { globToRegExp } from '../src/glob.ts';
+import { workspaceMatcher, workspaceMembers } from '../src/members.ts';
 
 test('glob patterns', () => {
   assert.ok(globToRegExp('**/package.json').test('package.json'));
@@ -185,7 +185,7 @@ test('workspace discovery on disk', async () => {
     const file = (rel: string) => path.join(dir, rel);
     const roots = await filterRoots([file('package.json'), file('packages/a/package.json'), file('tools/package.json')]);
     assert.deepEqual(roots, [file('package.json'), file('tools/package.json')]);
-    assert.deepEqual(await workspaceMembers(dir, ['packages/*']), [file('packages/a'), file('packages/b')]);
+    assert.deepEqual(await workspaceMembers(dir, ['packages/*'], 'package.json'), [file('packages/a'), file('packages/b')]);
     assert.equal((await findWorkspaceRoot(file('packages/a')))?.dir, dir);
     assert.equal(await findWorkspaceRoot(file('tools')), undefined);
     assert.equal(await detectPackageManager(dir, {}), 'pnpm');

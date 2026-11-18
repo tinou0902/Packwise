@@ -601,7 +601,7 @@ function renderDetails(): void {
       h('p', { class: 'description' }, description),
       h('dl', { class: 'fields' }, ...fields.filter(([, v]) => v).flatMap(([k, v]) => [h('dt', null, t(k)), h('dd', null, v)])),
     );
-    if (meta) {
+    if (meta?.dependencies) {
       const groups = meta.dependencies;
       children.push(h('h3', null, t('Dependencies')));
       if (groups.length === 0) children.push(h('p', { class: 'dim' }, t('No dependencies')));
