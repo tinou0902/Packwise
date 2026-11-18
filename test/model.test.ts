@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { applyOutdated, applyVulnerable, parseList } from '../src/model.ts';
+import { applyOutdated, applyVulnerable, parseList } from '../src/ecosystems/nuget/model.ts';
 
 const list = JSON.stringify({
   projects: [{

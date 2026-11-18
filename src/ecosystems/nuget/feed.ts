@@ -1,5 +1,6 @@
-import { severityName, type Advisory } from './advisory.ts';
-import { PromiseCache } from './cache.ts';
+import { severityName } from '../../advisory.ts';
+import { PromiseCache } from '../../cache.ts';
+import type { PackageFeed, SearchHit, Source, VersionDetails } from '../../ecosystem.ts';
 import { compareVersions } from './semver.ts';
 
 /**
@@ -7,12 +8,6 @@ import { compareVersions } from './semver.ts';
  * search, version history (with listing, advisories and deprecation) and per-version metadata.
  * Authenticated feeds are not supported: their requests fail with the HTTP status.
  */
-
-export interface Source {
-  name: string;
-  /** Service index URL (…/index.json). */
-  url: string;
-}
 
 export const NUGET_ORG: Source = { name: 'nuget.org', url: 'https://api.nuget.org/v3/index.json' };
 
@@ -22,59 +17,6 @@ async function getJson<T>(url: string): Promise<T> {
   const res = await fetch(url, { signal: AbortSignal.timeout(TIMEOUT_MS) });
   if (!res.ok) throw new Error(`${res.status} ${res.statusText} (${url})`);
   return JSON.parse((await res.text()).replace(/^﻿/, '')) as T;
-}
-
-export interface Deprecation {
-  reasons: string[];
-  message: string;
-  alternateId: string;
-}
-
-export interface Dependencies {
-  /** Dependency group (target framework for NuGet). */
-  group: string;
-  packages: { id: string; range: string }[];
-}
-
-/** Metadata of one package version. */
-export interface VersionDetails {
-  id: string;
-  version: string;
-  listed: boolean;
-  title: string;
-  description: string;
-  authors: string;
-  tags: string[];
-  iconUrl: string;
-  projectUrl: string;
-  licenseUrl: string;
-  licenseExpression: string;
-  /** ISO date ("" = unknown). */
-  published: string;
-  vulnerabilities: Advisory[];
-  deprecation?: Deprecation;
-  dependencies: Dependencies[];
-  /** Page of this version on the public gallery of the source (nuget.org…), when there is one. */
-  galleryUrl?: string;
-  /** Where to report the package to the gallery, when it accepts reports. */
-  reportUrl?: string;
-}
-
-/** One search hit (latest matching version). */
-export interface SearchHit {
-  id: string;
-  version: string;
-  title: string;
-  description: string;
-  authors: string;
-  owners: string;
-  iconUrl: string;
-  /** undefined = unknown. */
-  totalDownloads?: number;
-  verified: boolean;
-  vulnerable: boolean;
-  deprecated: boolean;
-  source: string;
 }
 
 interface RawCatalogEntry {
@@ -139,14 +81,6 @@ export function toVersionDetails(e: RawCatalogEntry, fallbackId: string, onNuGet
     galleryUrl: page,
     reportUrl: page && `${page}/ReportAbuse`,
   };
-}
-
-/** What the package manager needs from a package source (the HTTP client below, or a fake in tests). */
-export interface PackageFeed {
-  readonly source: Source;
-  search(query: string, skip: number, take: number, prerelease: boolean): Promise<{ hits: SearchHit[]; total: number }>;
-  find(id: string, prerelease: boolean): Promise<SearchHit | undefined>;
-  versions(id: string): Promise<VersionDetails[] | undefined>;
 }
 
 export class FeedClient implements PackageFeed {

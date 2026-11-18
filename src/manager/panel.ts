@@ -1,10 +1,9 @@
 import { randomBytes } from 'node:crypto';
-import * as path from 'node:path';
 import * as vscode from 'vscode';
 import { forEachLimited, PromiseCache } from '../cache.ts';
-import { addPackage, listSources, loadLatestPrerelease, removePackage } from '../dotnet.ts';
 import { errorMessage } from '../errors.ts';
-import { Feeds, resetFeedCaches } from '../feeds.ts';
+import type { Ecosystem } from '../ecosystem.ts';
+import { Feeds } from '../feeds.ts';
 import type { Solutions } from '../workspace.ts';
 import { ALL_SOURCES, type ProjectState, type ToHost, type ToWebview } from './protocol.ts';
 import { WEBVIEW_STRINGS } from './strings.ts';
@@ -14,7 +13,7 @@ const LOAD_CONCURRENCY = 4;
 /** Our own changes invalidate a project twice (explicitly and through the file watcher): coalesce them. */
 const RELOAD_DELAY_MS = 300;
 
-/** One `dotnet add/remove package` to run. */
+/** One package addition, update or removal to run. */
 interface Change {
   /** Project file URI. */
   uri: string;
@@ -35,7 +34,7 @@ export class ManagerPanel {
       existing.panel.reveal();
       return;
     }
-    const title = vscode.l10n.t('NuGet: {0}', solutionName(solution));
+    const title = vscode.l10n.t('NuGet: {0}', solutions.ecosystem.rootName(solution.fsPath));
     const panel = vscode.window.createWebviewPanel('packwise.manager', title, vscode.ViewColumn.Active, {
       enableScripts: true,
       retainContextWhenHidden: true,
@@ -51,17 +50,20 @@ export class ManagerPanel {
   /** Latest prerelease of each package, per project (fetched once the prerelease box is ticked). */
   private readonly prereleaseLatest = new PromiseCache<string, Map<string, string>>();
   private prerelease = false;
-  private readonly feeds = new Feeds();
   private readonly pendingReload = new Set<string>();
   private reloadTimer: NodeJS.Timeout | undefined;
   private busy = false;
 
   private readonly solutions: Solutions;
+  private readonly ecosystem: Ecosystem;
+  private readonly feeds: Feeds;
   private readonly panel: vscode.WebviewPanel;
   private readonly solution: vscode.Uri;
 
   private constructor(context: vscode.ExtensionContext, solutions: Solutions, panel: vscode.WebviewPanel, solution: vscode.Uri) {
     this.solutions = solutions;
+    this.ecosystem = solutions.ecosystem;
+    this.feeds = new Feeds(this.ecosystem);
     this.panel = panel;
     this.solution = solution;
     panel.webview.html = this.html(context);
@@ -85,7 +87,8 @@ export class ManagerPanel {
   private initMessage(): Extract<ToWebview, { type: 'init' }> {
     return {
       type: 'init',
-      title: solutionName(this.solution),
+      ecosystem: this.ecosystem.id,
+      title: this.ecosystem.rootName(this.solution.fsPath),
       sources: this.sourceList(),
       strings: Object.fromEntries(WEBVIEW_STRINGS.map(k => [k, vscode.l10n.t(k)])),
     };
@@ -123,7 +126,7 @@ export class ManagerPanel {
         if (!(await this.confirmUninstall(m.id, m.projects))) return;
         return this.run(m.projects.map(uri => ({ uri, id: m.id, version: '', remove: true })));
       case 'refresh':
-        resetFeedCaches();
+        this.ecosystem.resetFeeds();
         this.solutions.refresh();
         await this.loadSources();
         return;
@@ -161,8 +164,8 @@ export class ManagerPanel {
   }
 
   private async loadSources(): Promise<void> {
-    // Unreadable NuGet.Config: nuget.org only.
-    this.feeds.setSources(await listSources(path.dirname(this.solution.fsPath)).catch(() => []));
+    // Unreadable configuration: the ecosystem's default sources.
+    this.feeds.setSources(await this.ecosystem.sources(this.solution.fsPath).catch(() => []));
     this.post({ type: 'sources', sources: this.sourceList() });
   }
 
@@ -195,7 +198,7 @@ export class ManagerPanel {
     const key = uri.toString();
     const current: ProjectState = this.states.get(key) ?? {
       uri: key,
-      name: path.basename(uri.fsPath, '.csproj'),
+      name: this.ecosystem.projectName(uri.fsPath),
       path: vscode.workspace.asRelativePath(uri),
       loading: true,
       error: '',
@@ -215,7 +218,7 @@ export class ManagerPanel {
       let pre = new Map<string, string>();
       const preWarnings: string[] = [];
       if (this.prerelease) {
-        pre = await this.prereleaseLatest.get(uri.toString(), () => loadLatestPrerelease(uri.fsPath)).catch(() => {
+        pre = await this.prereleaseLatest.get(uri.toString(), () => this.ecosystem.loadLatestPrerelease(uri.fsPath)).catch(() => {
           preWarnings.push(vscode.l10n.t('latest prereleases'));
           return new Map<string, string>();
         });
@@ -227,7 +230,7 @@ export class ManagerPanel {
           ...warnings.map(w => (w === 'outdated' ? vscode.l10n.t('latest versions') : vscode.l10n.t('vulnerabilities'))),
           ...preWarnings,
         ],
-        packages: [...data.packages.values()].map(p => ({ ...p, latestPrerelease: pre.get(p.id.toLowerCase()) ?? '' })),
+        packages: [...data.packages.values()].map(p => ({ ...p, latestPrerelease: pre.get(this.ecosystem.normalizeId(p.id)) ?? '' })),
       });
     } catch (e) {
       this.setState(uri, { loading: false, error: errorMessage(e), warnings: [], packages: [] });
@@ -265,7 +268,7 @@ export class ManagerPanel {
     const touched = new Set<string>();
     try {
       await vscode.window.withProgress(
-        { location: vscode.ProgressLocation.Notification, title: 'NuGet', cancellable: true },
+        { location: vscode.ProgressLocation.Notification, title: this.ecosystem.label, cancellable: true },
         async (progress, token) => {
           for (const [i, c] of changes.entries()) {
             if (token.isCancellationRequested) break;
@@ -277,8 +280,8 @@ export class ManagerPanel {
             this.post({ type: 'busy', text });
             const file = vscode.Uri.parse(c.uri).fsPath;
             try {
-              if (c.remove) await removePackage(file, c.id);
-              else await addPackage(file, c.id, c.version);
+              if (c.remove) await this.ecosystem.remove(file, c.id);
+              else await this.ecosystem.add(file, c.id, c.version);
             } catch (e) {
               failures.push(`${project}: ${errorMessage(e)}`);
             }
@@ -326,8 +329,4 @@ export class ManagerPanel {
 /** Source name of a request: undefined for every source. */
 function sourceName(source: string): string | undefined {
   return source === ALL_SOURCES ? undefined : source;
-}
-
-function solutionName(solution: vscode.Uri): string {
-  return path.basename(solution.fsPath).replace(/\.slnx?$/i, '');
 }

@@ -1,14 +1,13 @@
 /** Messages between the package manager panel (extension host) and its webview. Type-only: shared by both bundles. */
 
-import type { Package } from '../model.ts';
-import type { SearchHit, VersionDetails } from '../nuget.ts';
+import type { EcosystemId, Package, SearchHit, VersionDetails } from '../ecosystem.ts';
 
 export type { Advisory } from '../advisory.ts';
-export type { Deprecation, Dependencies, SearchHit, VersionDetails } from '../nuget.ts';
+export type { Deprecation, Dependencies, EcosystemId, PackageRules, SearchHit, VersionDetails } from '../ecosystem.ts';
 
 export const ALL_SOURCES = '*';
 
-/** A package of a project, as listed by the dotnet CLI. */
+/** A package of a project, as listed by the ecosystem's CLI. */
 export interface InstalledPackage extends Package {
   /** Latest version including prereleases (only once the "include prerelease" box was ticked). */
   latestPrerelease: string;
@@ -31,6 +30,8 @@ export type Tab = 'browse' | 'installed' | 'updates' | 'consolidate';
 
 export interface InitMessage {
   type: 'init';
+  /** Selects the identity and version rules of the webview. */
+  ecosystem: EcosystemId;
   /** Solution name. */
   title: string;
   sources: { name: string }[];

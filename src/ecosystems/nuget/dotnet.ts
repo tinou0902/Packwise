@@ -1,7 +1,8 @@
 import { execFile } from 'node:child_process';
 import * as path from 'node:path';
-import { applyOutdated, applyVulnerable, latestVersions, parseList, type ProjectData } from './model.ts';
-import type { Source } from './nuget.ts';
+import type { LoadResult, Source } from '../../ecosystem.ts';
+import { log } from '../../log.ts';
+import { applyOutdated, applyVulnerable, latestVersions, parseList } from './model.ts';
 
 interface RunResult {
   code: number;
@@ -9,16 +10,9 @@ interface RunResult {
   stderr: string;
 }
 
-let logger: ((line: string) => void) | undefined;
-
-/** Receives every command line and the output of commands that change something (add/remove). */
-export function setLogger(fn: (line: string) => void): void {
-  logger = fn;
-}
-
 /** Runs the `dotnet` CLI in `cwd`; never rejects on a non-zero exit code. */
 function run(cwd: string, args: string[], verbose = false): Promise<RunResult> {
-  logger?.(`> dotnet ${args.join(' ')}`);
+  log(`> dotnet ${args.join(' ')}`);
   return new Promise((resolve, reject) => {
     execFile(
       'dotnet',
@@ -35,7 +29,7 @@ function run(cwd: string, args: string[], verbose = false): Promise<RunResult> {
           return;
         }
         const code = typeof error?.code === 'number' ? error.code : 0;
-        if (verbose || code !== 0) logger?.((stdout + stderr).trimEnd());
+        if (verbose || code !== 0) log((stdout + stderr).trimEnd());
         resolve({ code, stdout, stderr });
       },
     );
@@ -55,12 +49,6 @@ const inProject = (projectFile: string, args: string[], verbose = false) => run(
 
 const list = (projectFile: string, ...extra: string[]) =>
   inProject(projectFile, ['list', projectFile, 'package', ...extra, '--format', 'json']);
-
-export interface LoadResult {
-  data: ProjectData;
-  /** Set when latest versions or vulnerabilities could not be fetched (offline, unreachable feed…). */
-  warnings: ('outdated' | 'vulnerable')[];
-}
 
 export async function loadProject(projectFile: string): Promise<LoadResult> {
   let r = await list(projectFile, '--include-transitive');
@@ -84,7 +72,7 @@ export async function loadProject(projectFile: string): Promise<LoadResult> {
   return { data, warnings };
 }
 
-/** Latest version of each top-level package including prereleases (lower-cased id → version). */
+/** Latest version of each top-level package including prereleases (normalized id → version). */
 export async function loadLatestPrerelease(projectFile: string): Promise<Map<string, string>> {
   const r = await list(projectFile, '--outdated', '--include-prerelease');
   ensureSuccess(r);

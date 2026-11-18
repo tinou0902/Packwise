@@ -1,6 +1,6 @@
 /* Pure package logic of the webview (no DOM, no global state): what the lists and the version picker show. */
 
-import { compareVersions, isPrerelease } from '../../semver.ts';
+import type { PackageRules } from '../../ecosystem.ts';
 import type { InstalledPackage, ProjectState, SearchHit, Tab, VersionDetails } from '../protocol.ts';
 
 export interface Install {
@@ -11,7 +11,7 @@ export interface Install {
 /** One package line of the left list. */
 export interface Row {
   id: string;
-  /** Lower-cased id. */
+  /** Normalized id. */
   key: string;
   hit?: SearchHit;
   /** Top-level references in the panel's projects. */
@@ -29,6 +29,7 @@ export interface ListInput {
   /** Filter of the other tabs. */
   query: string;
   prerelease: boolean;
+  rules: PackageRules;
 }
 
 const lower = (s: string) => s.toLowerCase();
@@ -44,13 +45,13 @@ export function formatDownloads(n: number): string {
 }
 
 /** Version the package can be updated to (undefined when up to date). */
-export function updateTarget(p: InstalledPackage, prerelease: boolean): string | undefined {
-  const best = maxVersion([p.latest, prerelease ? p.latestPrerelease : undefined]);
-  return best && p.resolved && compareVersions(p.resolved, best) < 0 ? best : undefined;
+export function updateTarget(p: InstalledPackage, prerelease: boolean, rules: PackageRules): string | undefined {
+  const best = maxVersion([p.latest, prerelease ? p.latestPrerelease : undefined], rules);
+  return best && p.resolved && rules.compareVersions(p.resolved, best) < 0 ? best : undefined;
 }
 
-export function maxVersion(versions: readonly (string | undefined)[]): string | undefined {
-  return versions.filter((v): v is string => !!v).sort(compareVersions).at(-1);
+export function maxVersion(versions: readonly (string | undefined)[], rules: PackageRules): string | undefined {
+  return versions.filter((v): v is string => !!v).sort(rules.compareVersions).at(-1);
 }
 
 /** Every word of the query is part of the id (case-insensitive). */
@@ -59,20 +60,20 @@ export function matchesQuery(id: string, query: string): boolean {
   return words.every(w => id.toLowerCase().includes(w));
 }
 
-/** Top-level references to a package (lower-cased id) across projects. */
-export function installsOf(projects: readonly ProjectState[], key: string): Install[] {
+/** Top-level references to a package (normalized id) across projects. */
+export function installsOf(projects: readonly ProjectState[], key: string, rules: PackageRules): Install[] {
   return projects.flatMap(project =>
-    project.packages.filter(p => p.isDirect && lower(p.id) === key).map(pkg => ({ project, pkg })),
+    project.packages.filter(p => p.isDirect && rules.normalizeId(p.id) === key).map(pkg => ({ project, pkg })),
   );
 }
 
-/** Direct packages across projects, keyed by lower-cased id. */
-function directPackages(projects: readonly ProjectState[]): Map<string, Row> {
+/** Direct packages across projects, keyed by normalized id. */
+function directPackages(projects: readonly ProjectState[], rules: PackageRules): Map<string, Row> {
   const rows = new Map<string, Row>();
   for (const project of projects) {
     for (const pkg of project.packages) {
       if (!pkg.isDirect) continue;
-      const key = lower(pkg.id);
+      const key = rules.normalizeId(pkg.id);
       let row = rows.get(key);
       if (!row) rows.set(key, (row = { id: pkg.id, key, installs: [] }));
       row.installs.push({ project, pkg });
@@ -85,20 +86,23 @@ const sortById = (a: Row, b: Row) => a.id.localeCompare(b.id);
 
 /** Rows of a tab; `transitive` is only filled for the Installed tab. */
 export function rowsFor(tab: Tab, input: ListInput): { rows: Row[]; transitive: Row[] } {
-  const { projects, query } = input;
+  const { projects, query, rules } = input;
   const matches = (r: { id: string }) => matchesQuery(r.id, query);
   switch (tab) {
     case 'browse':
       return {
-        rows: input.hits.map(hit => ({ id: hit.id, key: lower(hit.id), hit, installs: installsOf(projects, lower(hit.id)) })),
+        rows: input.hits.map(hit => {
+          const key = rules.normalizeId(hit.id);
+          return { id: hit.id, key, hit, installs: installsOf(projects, key, rules) };
+        }),
         transitive: [],
       };
     case 'installed': {
-      const direct = directPackages(projects);
+      const direct = directPackages(projects, rules);
       const transitive = new Map<string, Row>();
       for (const project of projects) {
         for (const pkg of project.packages) {
-          const key = lower(pkg.id);
+          const key = rules.normalizeId(pkg.id);
           if (pkg.isDirect || direct.has(key) || transitive.has(key) || !matches(pkg)) continue;
           transitive.set(key, { id: pkg.id, key, installs: [], transitive: true });
         }
@@ -107,15 +111,15 @@ export function rowsFor(tab: Tab, input: ListInput): { rows: Row[]; transitive: 
     }
     case 'updates':
       return {
-        rows: [...directPackages(projects).values()]
-          .map(r => ({ ...r, target: maxVersion(r.installs.map(i => updateTarget(i.pkg, input.prerelease))) }))
+        rows: [...directPackages(projects, rules).values()]
+          .map(r => ({ ...r, target: maxVersion(r.installs.map(i => updateTarget(i.pkg, input.prerelease, rules)), rules) }))
           .filter(r => r.target && matches(r))
           .sort(sortById),
         transitive: [],
       };
     case 'consolidate':
       return {
-        rows: [...directPackages(projects).values()]
+        rows: [...directPackages(projects, rules).values()]
           .filter(r => new Set(r.installs.map(i => lower(i.pkg.resolved))).size > 1 && matches(r))
           .sort(sortById),
         transitive: [],
@@ -134,7 +138,12 @@ export type VersionChoice =
  * Versions offered by the picker, newest first, after the "latest stable" and "latest prerelease" shortcuts.
  * Hidden: unlisted versions and, unless allowed, prereleases (installed versions are always kept).
  */
-export function versionChoices(versions: readonly VersionDetails[], installedVersions: readonly string[], prerelease: boolean): VersionChoice[] {
+export function versionChoices(
+  versions: readonly VersionDetails[],
+  installedVersions: readonly string[],
+  prerelease: boolean,
+  { compareVersions, isPrerelease }: PackageRules,
+): VersionChoice[] {
   const installed = new Set(installedVersions.map(lower));
   const keep = versions
     .filter(v => installed.has(lower(v.version)) || (v.listed && (prerelease || !isPrerelease(v.version))))

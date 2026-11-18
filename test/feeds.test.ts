@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import type { PackageFeed, SearchHit, Source, VersionDetails } from '../src/ecosystem.ts';
 import { Feeds } from '../src/feeds.ts';
-import type { PackageFeed, SearchHit, Source, VersionDetails } from '../src/nuget.ts';
 
 const hit = (id: string, source: string): SearchHit => ({
   id, version: '1.0.0', title: id, description: '', authors: '', owners: '', iconUrl: '',
@@ -34,7 +34,7 @@ function feeds(): Feeds {
     [B.url, fakeFeed(B, ['serilog', 'Internal.Lib'])],
     [C.url, fakeFeed(C, [], 0, 'unreachable')],
   ]);
-  const f = new Feeds(s => byUrl.get(s.url)!);
+  const f = new Feeds({ defaultSources: [A], feed: s => byUrl.get(s.url)!, normalizeId: id => id.toLowerCase() });
   f.setSources([A, B, C]);
   return f;
 }
@@ -64,8 +64,10 @@ test('summary comes from the first source that knows the package', async () => {
   assert.deepEqual(await f.summary('Missing', false, 'private'), { found: false, error: undefined });
 });
 
-test('no configured source falls back to nuget.org', () => {
-  const f = new Feeds(s => fakeFeed(s, []));
+test('no configured source falls back to the default sources', () => {
+  const f = new Feeds({ defaultSources: [A, B], feed: s => fakeFeed(s, []), normalizeId: id => id });
+  f.setSources([C]);
+  assert.deepEqual(f.names, ['broken']);
   f.setSources([]);
-  assert.deepEqual(f.names, ['nuget.org']);
+  assert.deepEqual(f.names, ['nuget.org', 'private']);
 });

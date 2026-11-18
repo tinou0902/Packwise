@@ -2,9 +2,10 @@
 /* Package manager webview: layout and behaviour of Visual Studio's "Manage NuGet Packages" window. */
 
 import { worstSeverity } from '../../advisory.ts';
-import { compareVersions } from '../../semver.ts';
+import { RULES } from '../../ecosystems/rules.ts';
 import {
   ALL_SOURCES,
+  type PackageRules,
   type InstalledPackage,
   type ProjectState,
   type SearchHit,
@@ -18,7 +19,7 @@ import {
   formatDownloads,
   installedVersion,
   installsOf as installsIn,
-  maxVersion,
+  maxVersion as maxIn,
   galleryName,
   rowsFor as rowsIn,
   updateTarget as targetOf,
@@ -65,7 +66,7 @@ const state = {
   browse: { seq: 0, hits: [] as SearchHit[], hasMore: false, loading: false, errors: [] as string[] },
   summaries: new Map<string, Summary>(),
   selected: undefined as string | undefined,
-  /** Selected package id as given (the key is lower-cased). */
+  /** Selected package id as given (the key is normalized). */
   selectedId: undefined as string | undefined,
   selectedVersion: undefined as string | undefined,
   checkedProjects: new Set<string>(),
@@ -79,6 +80,11 @@ function t(key: StringKey, ...args: (string | number)[]): string {
   return s.replace(/\{(\d+)\}/g, (_, i: string) => String(args[Number(i)] ?? ''));
 }
 
+/** Identity and version rules of the panel's ecosystem (set by the init message). */
+let rules: PackageRules = RULES.nuget;
+/** Key of a package id. */
+const idKey = (id: string) => rules.normalizeId(id);
+/** Key of a version (case-insensitive). */
 const lower = (s: string) => s.toLowerCase();
 /** VS Code display language (set on <html> by the host). */
 const locale = document.documentElement.lang || undefined;
@@ -141,16 +147,18 @@ function link(text: string, url: string): HTMLElement {
 
 // ---------- Derived data ----------
 
-const installsOf = (key: string) => installsIn(state.projects, key);
-const updateTarget = (p: InstalledPackage) => targetOf(p, state.prerelease);
-const rowsFor = (tab: Tab) => rowsIn(tab, { projects: state.projects, hits: state.browse.hits, query: state.query, prerelease: state.prerelease });
+const installsOf = (key: string) => installsIn(state.projects, key, rules);
+const updateTarget = (p: InstalledPackage) => targetOf(p, state.prerelease, rules);
+const maxVersion = (versions: readonly (string | undefined)[]) => maxIn(versions, rules);
+const rowsFor = (tab: Tab) =>
+  rowsIn(tab, { projects: state.projects, hits: state.browse.hits, query: state.query, prerelease: state.prerelease, rules });
 
 function summaryOf(key: string): Summary | undefined {
   return state.summaries.get(key);
 }
 
 function requestSummary(id: string): void {
-  const key = lower(id);
+  const key = idKey(id);
   if (state.summaries.has(key)) return;
   state.summaries.set(key, { loading: true });
   send({ type: 'summary', id, prerelease: state.prerelease, source: state.source });
@@ -333,7 +341,7 @@ function renderList(): void {
   listPane.replaceChildren(...children);
   listPane.scrollTop = scroll;
   for (const el of listPane.querySelectorAll<HTMLElement>('.row[data-id]')) {
-    if (!state.summaries.has(lower(el.dataset.id!))) visibility.observe(el);
+    if (!state.summaries.has(idKey(el.dataset.id!))) visibility.observe(el);
   }
 }
 
@@ -354,11 +362,11 @@ function renderRow(row: Row): HTMLElement {
   const right: Child[] = [];
   if (state.tab === 'browse') {
     if (installed) right.push(h('div', { class: 'ver installed' }, icon('check'), versions.size > 1 ? t('multiple') : [...versions][0]));
-    if (!installed || (latest && compareVersions(installed, latest) < 0)) right.push(h('div', { class: `ver${installed ? ' update' : ''}` }, installed && icon('up'), latest));
+    if (!installed || (latest && rules.compareVersions(installed, latest) < 0)) right.push(h('div', { class: `ver${installed ? ' update' : ''}` }, installed && icon('up'), latest));
   } else if (state.tab === 'consolidate') {
-    right.push(h('div', { class: 'ver' }, [...versions].sort(compareVersions).join(', ')));
+    right.push(h('div', { class: 'ver' }, [...versions].sort(rules.compareVersions).join(', ')));
   } else if (row.transitive) {
-    const res = maxVersion(state.projects.flatMap(p => p.packages.filter(x => lower(x.id) === row.key).map(x => x.resolved)));
+    const res = maxVersion(state.projects.flatMap(p => p.packages.filter(x => idKey(x.id) === row.key).map(x => x.resolved)));
     right.push(h('div', { class: 'ver dim' }, res));
   } else {
     right.push(h('div', { class: 'ver' }, versions.size > 1 ? t('multiple') : [...versions][0]));
@@ -405,7 +413,7 @@ function renderRow(row: Row): HTMLElement {
 }
 
 function select(id: string | undefined): void {
-  const key = id ? lower(id) : undefined;
+  const key = id ? idKey(id) : undefined;
   if (state.selected === key) return;
   state.selected = key;
   state.selectedId = id;
@@ -448,7 +456,7 @@ function renderDetails(): void {
   const installs = installsOf(key);
   const installedVersions = installs.map(i => installedVersion(i.pkg));
   const versions = summary?.versions ?? [];
-  const choices = versionChoices(versions, installedVersions, state.prerelease);
+  const choices = versionChoices(versions, installedVersions, state.prerelease, rules);
 
   // Default version: the update target, else the latest stable (or prerelease when allowed).
   if (!state.selectedVersion || (versions.length > 0 && !choices.some(c => lower(c.value) === lower(state.selectedVersion!)))) {
@@ -478,7 +486,7 @@ function renderDetails(): void {
     ),
   );
 
-  const transitiveOnly = installs.length === 0 && state.projects.some(p => p.packages.some(x => lower(x.id) === key));
+  const transitiveOnly = installs.length === 0 && state.projects.some(p => p.packages.some(x => idKey(x.id) === key));
   if (transitiveOnly) children.push(h('div', { class: 'banner info' }, t('Transitively referenced: installing it adds a top-level reference.')));
 
   // ----- Projects and actions -----
@@ -492,7 +500,7 @@ function renderDetails(): void {
 
   const checked = state.projects.filter(p => state.checkedProjects.has(p.uri));
   const allChecked = state.projects.length > 0 && checked.length === state.projects.length;
-  const versionIn = (p: ProjectState) => p.packages.find(x => x.isDirect && lower(x.id) === key);
+  const versionIn = (p: ProjectState) => p.packages.find(x => x.isDirect && idKey(x.id) === key);
   if (new Set(installedVersions.map(lower)).size > 1) children.push(h('div', { class: 'banner info' }, t('Versions installed in the solution differ.')));
   children.push(h('table', { class: 'projects' },
     h('thead', null, h('tr', null,
@@ -618,7 +626,7 @@ function updateChecked(rows: Row[]): void {
     .map(r => ({
       id: r.id,
       version: r.target!,
-      projects: r.installs.filter(i => compareVersions(i.pkg.resolved, r.target!) < 0).map(i => i.project.uri),
+      projects: r.installs.filter(i => rules.compareVersions(i.pkg.resolved, r.target!) < 0).map(i => i.project.uri),
     }))
     .filter(u => u.projects.length > 0);
   if (updates.length > 0) send({ type: 'update', updates });
@@ -740,6 +748,7 @@ window.addEventListener('message', (event: MessageEvent<ToWebview>) => {
   const m = event.data;
   switch (m.type) {
     case 'init':
+      rules = RULES[m.ecosystem];
       state.title = m.title;
       state.strings = m.strings;
       state.sources = m.sources;
@@ -759,7 +768,7 @@ window.addEventListener('message', (event: MessageEvent<ToWebview>) => {
       if (m.seq !== state.browse.seq) return;
       state.browse = {
         seq: m.seq,
-        hits: m.append ? [...state.browse.hits, ...m.hits.filter(h => !state.browse.hits.some(x => lower(x.id) === lower(h.id)))] : m.hits,
+        hits: m.append ? [...state.browse.hits, ...m.hits.filter(h => !state.browse.hits.some(x => idKey(x.id) === idKey(h.id)))] : m.hits,
         hasMore: m.hasMore,
         loading: false,
         errors: m.errors,
@@ -769,7 +778,7 @@ window.addEventListener('message', (event: MessageEvent<ToWebview>) => {
     case 'summary':
       // Answer to a request made before the prerelease box or the source changed.
       if (m.prerelease !== state.prerelease || m.source !== state.source) return;
-      state.summaries.set(lower(m.id), { loading: false, hit: m.hit, versions: m.versions, error: m.error });
+      state.summaries.set(idKey(m.id), { loading: false, hit: m.hit, versions: m.versions, error: m.error });
       render();
       return;
     case 'busy':

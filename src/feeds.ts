@@ -1,5 +1,5 @@
 import { errorMessage } from './errors.ts';
-import { FeedClient, NUGET_ORG, type PackageFeed, type SearchHit, type Source, type VersionDetails } from './nuget.ts';
+import type { Ecosystem, PackageFeed, SearchHit, Source, VersionDetails } from './ecosystem.ts';
 
 export interface SearchPage {
   hits: SearchHit[];
@@ -12,42 +12,32 @@ export type Summary =
   | { found: true; hit?: SearchHit; versions: VersionDetails[] }
   | { found: false; error?: string };
 
-/** Feed clients by service index URL, shared by every panel (their registration cache too). */
-const sharedClients = new Map<string, FeedClient>();
+/** What `Feeds` needs from an ecosystem. */
+export type FeedProvider = Pick<Ecosystem, 'defaultSources' | 'feed' | 'normalizeId'>;
 
-export function sharedClient(source: Source): PackageFeed {
-  let c = sharedClients.get(source.url);
-  if (!c) sharedClients.set(source.url, (c = new FeedClient(source)));
-  return c;
-}
-
-/** Drops every cached service index and registration. */
-export function resetFeedCaches(): void {
-  sharedClients.clear();
-}
-
-/** Queries the package sources of a solution: one source by name, or all of them merged. */
+/** Queries the package sources of a root: one source by name, or all of them merged. */
 export class Feeds {
-  private sources: Source[] = [NUGET_ORG];
-  private readonly clientFor: (source: Source) => PackageFeed;
+  private readonly provider: FeedProvider;
+  private sources: Source[];
 
-  constructor(clientFor: (source: Source) => PackageFeed = sharedClient) {
-    this.clientFor = clientFor;
+  constructor(provider: FeedProvider) {
+    this.provider = provider;
+    this.sources = [...provider.defaultSources];
   }
 
   get names(): string[] {
     return this.sources.map(s => s.name);
   }
 
-  /** Sets the configured sources; nuget.org when there is none. */
+  /** Sets the configured sources; the ecosystem's default ones when there is none. */
   setSources(sources: readonly Source[]): void {
-    this.sources = sources.length > 0 ? [...sources] : [NUGET_ORG];
+    this.sources = [...(sources.length > 0 ? sources : this.provider.defaultSources)];
   }
 
   /** Clients of the named source, or of every source when the name is undefined or unknown. */
   private clients(source: string | undefined): PackageFeed[] {
     const selected = source === undefined ? this.sources : this.sources.filter(s => s.name === source);
-    return (selected.length > 0 ? selected : this.sources).map(this.clientFor);
+    return (selected.length > 0 ? selected : this.sources).map(s => this.provider.feed(s));
   }
 
   /** One page of results of every selected source, deduplicated by id (first source wins). */
@@ -62,7 +52,7 @@ export class Feeds {
       }
       page.hasMore ||= r.value.hits.length === take && skip + take < r.value.total;
       for (const hit of r.value.hits) {
-        const key = hit.id.toLowerCase();
+        const key = this.provider.normalizeId(hit.id);
         if (seen.has(key)) continue;
         seen.add(key);
         page.hits.push(hit);
