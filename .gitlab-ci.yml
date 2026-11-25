@@ -104,7 +104,7 @@ github-release:
       fi
     - node scripts/github-release.mjs "$RELEASE_TAG" "$VSIX"
 
-# Publish to the VS Code Marketplace (publisher tinou0902). Needs a masked VSCE_PAT CI/CD variable: Azure DevOps
+# Publish to the VS Code Marketplace (publisher sporange-dev). Needs a masked VSCE_PAT CI/CD variable: Azure DevOps
 # PAT, organization "All accessible organizations", scope "Marketplace: Manage".
 # Backfill: run a pipeline on main (UI or API) with MARKETPLACE_TAG=vX.Y.Z (the .vsix comes from the package registry).
 marketplace:
