@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.3
+
+- First release on the VS Code Marketplace, under the `sporange-dev` publisher (extension ID
+  `sporange-dev.packwise`).
+
 ## 0.5.2
 
 - Screenshots of the extension page updated for the new look.
