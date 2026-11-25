@@ -103,3 +103,27 @@ github-release:
         wget -q --header "JOB-TOKEN: $CI_JOB_TOKEN" -O "$VSIX" "$PACKAGE_REGISTRY_URL/${RELEASE_TAG#v}/$VSIX"
       fi
     - node scripts/github-release.mjs "$RELEASE_TAG" "$VSIX"
+
+# Publish to the VS Code Marketplace (publisher sporange-dev). Needs a masked VSCE_PAT CI/CD variable: Azure DevOps
+# PAT, organization "All accessible organizations", scope "Marketplace: Manage".
+# Backfill: run a pipeline on main (UI or API) with MARKETPLACE_TAG=vX.Y.Z (the .vsix comes from the package registry).
+marketplace:
+  stage: release
+  rules:
+    - if: $VSCE_PAT == null || $VSCE_PAT == ""
+      when: never
+    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/
+      variables: { RELEASE_TAG: $CI_COMMIT_TAG }
+      needs: [package, release]
+    - if: $CI_PIPELINE_SOURCE =~ /^(web|api)$/ && $MARKETPLACE_TAG =~ /^v\d+\.\d+\.\d+$/
+      variables: { RELEASE_TAG: $MARKETPLACE_TAG }
+      needs: []
+  cache: []
+  script:
+    - VSIX="packwise-${RELEASE_TAG#v}.vsix"
+    - |
+      if [ ! -f "$VSIX" ]; then
+        wget -q --header "JOB-TOKEN: $CI_JOB_TOKEN" -O "$VSIX" "$PACKAGE_REGISTRY_URL/${RELEASE_TAG#v}/$VSIX"
+      fi
+    # vsce reads the token from VSCE_PAT.
+    - npx vsce publish --packagePath "$VSIX"
