@@ -127,3 +127,27 @@ marketplace:
       fi
     # vsce reads the token from VSCE_PAT.
     - npx vsce publish --packagePath "$VSIX"
+
+# Publish to Open VSX (namespace sporange-dev), the registry used by VSCodium, Cursor, Gitpod, etc. Needs a masked
+# OVSX_PAT CI/CD variable: access token of the open-vsx.org account that owns the namespace.
+# Backfill: run a pipeline on main (UI or API) with OPENVSX_TAG=vX.Y.Z (the .vsix comes from the package registry).
+openvsx:
+  stage: release
+  rules:
+    - if: $OVSX_PAT == null || $OVSX_PAT == ""
+      when: never
+    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/
+      variables: { RELEASE_TAG: $CI_COMMIT_TAG }
+      needs: [package, release]
+    - if: $CI_PIPELINE_SOURCE =~ /^(web|api)$/ && $OPENVSX_TAG =~ /^v\d+\.\d+\.\d+$/
+      variables: { RELEASE_TAG: $OPENVSX_TAG }
+      needs: []
+  cache: []
+  script:
+    - VSIX="packwise-${RELEASE_TAG#v}.vsix"
+    - |
+      if [ ! -f "$VSIX" ]; then
+        wget -q --header "JOB-TOKEN: $CI_JOB_TOKEN" -O "$VSIX" "$PACKAGE_REGISTRY_URL/${RELEASE_TAG#v}/$VSIX"
+      fi
+    # ovsx reads the token from OVSX_PAT.
+    - npx ovsx publish "$VSIX"
